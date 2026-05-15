@@ -31,6 +31,16 @@ cargo run -- <path/to/config.json> [--output-file-hdf5 <path/to/output.hdf5>] [-
 - `--threads`: number of threads (default: ~50% of logical cores).
 - `--force`: overwrite the output file if it exists.
 
+### Example (`examples/config.json`)
+
+This repo ships a json configuration and a tiny graph in `examples/`. Run it with:
+
+```bash
+cargo run -- examples/config.json
+```
+The graph and the dynamical parameters in the example are too small to produce meaningful results.
+The example is only meant to illustrate multiple configurations that follow the JSON schema and how to store the graph.
+
 ## Input graph format (`.edgelist`)
 
 The graph is read from a text file with the following layout:

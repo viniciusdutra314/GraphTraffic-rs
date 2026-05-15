@@ -1,0 +1,146 @@
+[
+    {
+        "uuid": "905969dc-154c-4f95-b4cb-ea3d02d4f572",
+        "graph_file_name": "examples/tiny_graph.edgelist",
+        "message_generation": 0.2,
+        "max_iterations": 100,
+        "warm_up_iterations": 10,
+        "random_seed": 42,
+        "routing_method": "minimal_paths",
+        "graph_generation_info": {
+            "description": "5-node cycle"
+        },
+        "modifiers": [
+            {
+                "type": "ModifierEdgeCapacity",
+                "free_flow_rate": 0.8,
+                "free_flow_sampling_time": 10
+            }
+        ],
+        "observers": [
+            { "type": "ObserverEdgeQueue" },
+            { "type": "ObserverEdgeCapacity", "update_interval": 5 },
+            { "type": "ObserverTotalMessages" }
+        ]
+    },
+    {
+        "uuid": "a7d1d4a2-5a52-4fd6-b6a6-7a1d0f8bd9f0",
+        "graph_file_name": "examples/tiny_graph.edgelist",
+        "message_generation": 0.05,
+        "max_iterations": 200,
+        "warm_up_iterations": 0,
+        "random_seed": 1,
+        "routing_method": "random_walk",
+        "modifiers": [],
+        "observers": [{ "type": "ObserverTotalMessages" }]
+    },
+    {
+        "uuid": "b9f3b1d8-0e8b-41c8-a3c0-0c3c48e1b2e4",
+        "graph_file_name": "examples/tiny_graph.edgelist",
+        "message_generation": 0.4,
+        "max_iterations": 150,
+        "warm_up_iterations": 20,
+        "random_seed": 7,
+        "routing_method": { "limited_visibility": 1 },
+        "modifiers": [],
+        "observers": [
+            { "type": "ObserverEdgeQueue" },
+            { "type": "ObserverEdgeReceivedMessages" }
+        ]
+    },
+    {
+        "uuid": "0e6c1a4f-3a7d-4f6c-8b93-1a9151de7b50",
+        "graph_file_name": "examples/tiny_graph.edgelist",
+        "message_generation": 0.9,
+        "max_iterations": 80,
+        "warm_up_iterations": 5,
+        "random_seed": 999,
+        "routing_method": "minimal_paths",
+        "modifiers": [
+            {
+                "type": "ModifierEdgeCapacity",
+                "free_flow_rate": 0.6,
+                "free_flow_sampling_time": 5
+            }
+        ],
+        "observers": [{ "type": "ObserverEdgeCapacity", "update_interval": 2 }]
+    },
+    {
+        "uuid": "2c2c51c5-9bb5-4c56-8ff3-2af9c71f6c7e",
+        "graph_file_name": "examples/tiny_graph.edgelist",
+        "message_generation": 0.15,
+        "max_iterations": 300,
+        "warm_up_iterations": 50,
+        "random_seed": 123,
+        "routing_method": { "limited_visibility": 3 },
+        "modifiers": [],
+        "observers": [
+            { "type": "ObserverEdgeQueue" },
+            { "type": "ObserverTotalMessages" }
+        ]
+    },
+    {
+        "uuid": "7e6f0a4f-4e7c-4a6c-96c8-0efb6f7d0f6b",
+        "graph_file_name": "examples/tiny_graph.edgelist",
+        "message_generation": 0.3,
+        "max_iterations": 120,
+        "warm_up_iterations": 10,
+        "routing_method": "random_walk",
+        "modifiers": [
+            {
+                "type": "ModifierEdgeCapacity",
+                "free_flow_rate": 0.9,
+                "free_flow_sampling_time": 20
+            }
+        ],
+        "observers": [
+            { "type": "ObserverEdgeQueue" },
+            { "type": "ObserverEdgeCapacity", "update_interval": 10 }
+        ]
+    },
+    {
+        "uuid": "3b7b5d6f-1f2f-4b2a-8f45-1a9e1d1b8f52",
+        "graph_file_name": "examples/tiny_graph.edgelist",
+        "message_generation": 0.7,
+        "max_iterations": 60,
+        "warm_up_iterations": 0,
+        "random_seed": 555,
+        "routing_method": "minimal_paths",
+        "modifiers": [],
+        "observers": [{ "type": "ObserverEdgeReceivedMessages" }]
+    },
+    {
+        "uuid": "6a7b2e3f-6b0f-4c1a-9b6c-2d7b1f4b9b21",
+        "graph_file_name": "examples/tiny_graph.edgelist",
+        "message_generation": 0.5,
+        "max_iterations": 180,
+        "warm_up_iterations": 30,
+        "routing_method": "minimal_paths",
+        "modifiers": [],
+        "observers": [
+            { "type": "ObserverEdgeCapacity", "update_interval": 3 },
+            { "type": "ObserverEdgeReceivedMessages" }
+        ]
+    },
+    {
+        "uuid": "d2e8a7a1-3c57-44f2-8b7e-66d10f6b6b1b",
+        "graph_file_name": "examples/tiny_graph.edgelist",
+        "message_generation": 0.25,
+        "max_iterations": 90,
+        "warm_up_iterations": 15,
+        "random_seed": 8080,
+        "routing_method": { "limited_visibility": 2 },
+        "modifiers": [
+            {
+                "type": "ModifierEdgeCapacity",
+                "free_flow_rate": 0.85,
+                "free_flow_sampling_time": 8
+            }
+        ],
+        "observers": [
+            { "type": "ObserverEdgeQueue" },
+            { "type": "ObserverEdgeCapacity", "update_interval": 4 },
+            { "type": "ObserverTotalMessages" }
+        ]
+    }
+]
