@@ -1,0 +1,60 @@
+[package]
+name = "graph_traffic_simulator"
+version = "0.1.0"
+edition = "2024"
+authors = ["Vinícius Sousa Dutra <dutravinisousa2@usp.br>"]
+rust-version = "1.88.0"
+
+[profile.release]
+opt-level = 3
+strip = true
+lto=true
+panic = "abort"
+
+[profile.test]
+opt-level = 0
+debug = true
+strip=false
+
+[lints.rust]
+warnings = "deny"
+unsafe_code = "deny"
+
+[lints.clippy]
+all = "deny"
+nursery = "deny"
+
+[dependencies]
+#CLI
+clap = { version = "4.6.1",features = ["derive"]}
+hdf5-metno = {version="0.12.4",default-features = false,features = ["static", "zlib"]}
+#numerics to work with bigintegers
+num-traits = { version = "0.2.19",default-features = false }
+num-rational = {version="0.4.2",default-features=false,features=["std","num-bigint"]}
+num-bigint = {version="0.4.6",default-features = false}
+#random
+rand = {version="0.9.4"}
+rand_distr = {version="0.5.1",default-features=false,features=["std","alloc"]}
+rand_pcg = {version="0.9.0",default-features=false}
+rayon = {version="1.12.0",default-features=false}
+#json serialization/deserialization
+serde = {version="1.0.228",default-features=false}
+serde_json = {version="1.0.149",default-features=false}
+jsonschema = {version="0.38.1",default-features = false}
+petgraph = { version = "0.8.3", default-features = false,features=["std"] }
+fixedbitset = {version="0.5.7",default-features=false}
+uuid = {version="1.23.1",default-features=false,features=["v4","serde"]}
+
+
+[build-dependencies]
+typify = {version="0.5.0",default-features=false,features=["macro"]}
+serde = {version="1.0.228",default-features=false}
+serde_json = {version="1.0.149",default-features=false}
+schemars = "0.8"
+
+[dev-dependencies]
+ndarray = "0.17.2"
+rustworkx-core = "0.17.1"
+petgraph = { version = "0.8.3", default-features = false,features=["dot_parser"] }
+palette = "0.7.6"
+
