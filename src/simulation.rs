@@ -56,19 +56,20 @@ impl Simulation {
                 self.observers
                     .iter_mut()
                     .for_each(|o| o.measure(self.current_time_step, &self.edges, &self.vertices));
-                for modifiers in self.modifiers.iter_mut() {
-                    if modifiers.should_stop_simulation() {
-                        return ();
-                    }
-                    if modifiers.measure_and_check_if_ready_to_act(
-                        self.current_time_step,
-                        &self.edges,
-                        &self.vertices,
-                    ) {
-                        modifiers.act(&mut self.edges, &mut self.vertices);
-                    }
+            }
+            for modifiers in self.modifiers.iter_mut() {
+                if modifiers.should_stop_simulation() {
+                    return ();
+                }
+                if modifiers.measure_and_check_if_ready_to_act(
+                    self.current_time_step,
+                    &self.edges,
+                    &self.vertices,
+                ) {
+                    modifiers.act(&mut self.edges, &mut self.vertices);
                 }
             }
+
             self.forward_messages_on_edges(ready_to_observe);
         }
     }
