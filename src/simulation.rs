@@ -142,10 +142,12 @@ impl Simulation {
     }
 
     fn save(mut self, file: &hdf5_metno::file::File) {
-        let results_group = file.group("simulations_results").unwrap_or_else(|_| {
-            file.create_group("simulations_results")
-                .expect("Could not create results group")
-        });
+        let results_group = file
+            .group("simulations_results")
+            .or_else(|_| file.create_group("simulations_results"))
+            .or_else(|_| file.group("simulations_results"))
+            .expect("Could not open or create results group");
+
         let group = results_group
             .create_group(&self.config.uuid.to_string())
             .expect("Could not create HDF5 group");
@@ -284,7 +286,9 @@ mod tests {
             json!([{
                 "type": "ModifierEdgeCapacity",
                 "free_flow_rate": 0.5,
-                "free_flow_sampling_time": 1
+                "free_flow_sampling_time": 1,
+                "minimal_capacity": 1,
+                "multiplier": 1.0
             }]),
         );
         let simulation_uuid = config.uuid.to_string();

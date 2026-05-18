@@ -14,7 +14,9 @@
             {
                 "type": "ModifierEdgeCapacity",
                 "free_flow_rate": 0.8,
-                "free_flow_sampling_time": 10
+                "free_flow_sampling_time": 10,
+                "minimal_capacity": 1,
+                "multiplier": 1
             }
         ],
         "observers": [
@@ -60,7 +62,9 @@
             {
                 "type": "ModifierEdgeCapacity",
                 "free_flow_rate": 0.6,
-                "free_flow_sampling_time": 5
+                "free_flow_sampling_time": 5,
+                "minimal_capacity": 1,
+                "multiplier": 1
             }
         ],
         "observers": [{ "type": "ObserverEdgeCapacity", "update_interval": 2 }]
@@ -90,7 +94,9 @@
             {
                 "type": "ModifierEdgeCapacity",
                 "free_flow_rate": 0.9,
-                "free_flow_sampling_time": 20
+                "free_flow_sampling_time": 20,
+                "minimal_capacity": 1,
+                "multiplier": 1
             }
         ],
         "observers": [
@@ -134,7 +140,9 @@
             {
                 "type": "ModifierEdgeCapacity",
                 "free_flow_rate": 0.85,
-                "free_flow_sampling_time": 8
+                "free_flow_sampling_time": 8,
+                "minimal_capacity": 1,
+                "multiplier": 1
             }
         ],
         "observers": [

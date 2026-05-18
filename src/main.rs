@@ -247,6 +247,8 @@ mod tests {
             modifiers: vec![ModifierEdgeCapacity {
                 free_flow_rate: 0.8,
                 free_flow_sampling_time: 10,
+                multiplier: 1.0,
+                minimal_capacity: 1,
                 type_: serde_json::json! {"edge_capacity"},
             }],
             observers: Vec::new(),

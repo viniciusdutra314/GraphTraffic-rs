@@ -1,128 +1,150 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "SimulationConfiguration",
-  "type": "array",
-  "items": {
-    "title": "SimulationConfigurationItem",
-    "type": "object",
-    "required": [
-      "uuid",
-      "graph_file_name",
-      "message_generation",
-      "max_iterations",
-      "routing_method"
-    ],
-    "properties": {
-      "uuid": {
-        "type": "string",
-        "format": "uuid"
-      },
-      "routing_method": {
-        "oneOf": [
-          { "const": "minimal_paths" },
-          { "const": "random_walk" },
-          {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "SimulationConfiguration",
+    "type": "array",
+    "items": {
+        "title": "SimulationConfigurationItem",
+        "type": "object",
+        "required": [
+            "uuid",
+            "graph_file_name",
+            "message_generation",
+            "max_iterations",
+            "routing_method"
+        ],
+        "properties": {
+            "uuid": {
+                "type": "string",
+                "format": "uuid"
+            },
+            "routing_method": {
+                "oneOf": [
+                    { "const": "minimal_paths" },
+                    { "const": "random_walk" },
+                    {
+                        "type": "object",
+                        "required": ["limited_visibility"],
+                        "properties": {
+                            "limited_visibility": {
+                                "type": "integer",
+                                "minimum": 0
+                            }
+                        },
+                        "additionalProperties": false
+                    }
+                ]
+            },
+            "graph_file_name": {
+                "type": "string"
+            },
+            "message_generation": {
+                "type": "number",
+                "exclusiveMinimum": 0.0,
+                "maximum": 1.0
+            },
+            "max_iterations": {
+                "type": "integer",
+                "exclusiveMinimum": 0
+            },
+            "warm_up_iterations": {
+                "type": "integer",
+                "minimum": 0
+            },
+            "random_seed": {
+                "type": "integer",
+                "minimum": 0
+            },
+            "graph_generation_info": {
+                "description": "Python-specific generation metadata. Rust treats this as a generic value.",
+                "type": "object",
+                "additionalProperties": true
+            },
+            "modifiers": {
+                "type": "array",
+                "items": {
+                    "oneOf": [{ "$ref": "#/$defs/ModifierEdgeCapacity" }]
+                }
+            },
+            "observers": {
+                "type": "array",
+                "items": {
+                    "oneOf": [
+                        {
+                            "type": "object",
+                            "required": ["type"],
+                            "properties": {
+                                "type": { "const": "ObserverEdgeQueue" }
+                            },
+                            "additionalProperties": false
+                        },
+                        {
+                            "type": "object",
+                            "required": ["type"],
+                            "properties": {
+                                "type": {
+                                    "const": "ObserverEdgeReceivedMessages"
+                                }
+                            },
+                            "additionalProperties": false
+                        },
+                        {
+                            "type": "object",
+                            "required": ["type", "update_interval"],
+                            "properties": {
+                                "type": { "const": "ObserverEdgeCapacity" },
+                                "update_interval": {
+                                    "type": "integer",
+                                    "minimum": 1
+                                }
+                            },
+                            "additionalProperties": false
+                        },
+                        {
+                            "type": "object",
+                            "required": ["type"],
+                            "properties": {
+                                "type": { "const": "ObserverTotalMessages" }
+                            },
+                            "additionalProperties": false
+                        }
+                    ]
+                }
+            }
+        },
+        "additionalProperties": false
+    },
+    "$defs": {
+        "ModifierEdgeCapacity": {
+            "title": "ModifierEdgeCapacity",
             "type": "object",
-            "required": ["limited_visibility"],
+            "required": [
+                "type",
+                "free_flow_rate",
+                "free_flow_sampling_time",
+                "minimal_capacity",
+                "multiplier"
+            ],
             "properties": {
-              "limited_visibility": { "type": "integer", "minimum": 0 }
+                "type": { "const": "ModifierEdgeCapacity" },
+                "free_flow_rate": {
+                    "type": "number",
+                    "exclusiveMinimum": 0.0,
+                    "maximum": 1.0
+                },
+                "free_flow_sampling_time": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "minimal_capacity": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "multiplier": {
+                    "type": "number",
+                    "exclusiveMinimum": 0.0
+                }
             },
             "additionalProperties": false
-          }
-        ]
-      },
-      "graph_file_name": {
-        "type": "string"
-      },
-      "message_generation": {
-        "type": "number",
-        "exclusiveMinimum": 0.0,
-        "maximum": 1.0
-      },
-      "max_iterations": {
-        "type": "integer",
-        "exclusiveMinimum": 0
-      },
-      "warm_up_iterations": {
-        "type": "integer",
-        "minimum": 0
-      },
-      "random_seed": {
-        "type": "integer",
-        "minimum": 0
-      },
-      "graph_generation_info": {
-        "description": "Python-specific generation metadata. Rust treats this as a generic value.",
-        "type": "object",
-        "additionalProperties": true
-      },
-      "modifiers": {
-        "type": "array",
-        "items": {
-          "oneOf": [{ "$ref": "#/$defs/ModifierEdgeCapacity" }]
         }
-      },
-      "observers": {
-        "type": "array",
-        "items": {
-          "oneOf": [
-            {
-              "type": "object",
-              "required": ["type"],
-              "properties": {
-                "type": { "const": "ObserverEdgeQueue" }
-              },
-              "additionalProperties": false
-            },
-            {
-              "type": "object",
-              "required": ["type"],
-              "properties": {
-                "type": { "const": "ObserverEdgeReceivedMessages" }
-              },
-              "additionalProperties": false
-            },
-            {
-              "type": "object",
-              "required": ["type", "update_interval"],
-              "properties": {
-                "type": { "const": "ObserverEdgeCapacity" },
-                "update_interval": { "type": "integer", "minimum": 1 }
-              },
-              "additionalProperties": false
-            },
-            {
-              "type": "object",
-              "required": ["type"],
-              "properties": {
-                "type": { "const": "ObserverTotalMessages" }
-              },
-              "additionalProperties": false
-            }
-          ]
-        }
-      }
-    },
-    "additionalProperties": false
-  },
-  "$defs": {
-    "ModifierEdgeCapacity": {
-      "title": "ModifierEdgeCapacity",
-      "type": "object",
-      "required": ["type", "free_flow_rate", "free_flow_sampling_time"],
-      "properties": {
-        "type": { "const": "ModifierEdgeCapacity" },
-        "free_flow_rate": {
-          "type": "number",
-          "exclusiveMinimum": 0.0,
-          "maximum": 1.0
-        },
-        "free_flow_sampling_time": {
-          "type": "integer",
-          "minimum": 0
-        }
-      },
-      "additionalProperties": false
     }
-  }
 }
