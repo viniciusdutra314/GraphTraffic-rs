@@ -43,16 +43,23 @@ impl Vertex {
     pub fn increment_num_created_messages(&mut self) {
         self.num_messages_generated += 1;
     }
-    pub fn update_statistics(&mut self, message: &Message, ideal_distance: u16) {
+    pub fn update_statistics(
+        &mut self,
+        message: &Message,
+        ideal_distance: u16,
+        ready_to_observe: bool,
+    ) {
         if let MessageState::Arrived { time_arrived } = message.state {
-            self.num_arrived_msgs += 1;
-            let incremented_travalled_time =
-                time_arrived.checked_sub(message.time_creation()).unwrap();
-            if incremented_travalled_time == 0 {
-                panic!("Traveling time cannot be zero when updating statistics.");
+            if ready_to_observe {
+                self.num_arrived_msgs += 1;
+                let incremented_travalled_time =
+                    time_arrived.checked_sub(message.time_creation()).unwrap();
+                if incremented_travalled_time == 0 {
+                    panic!("Traveling time cannot be zero when updating statistics.");
+                }
+                self.total_traveling_time += incremented_travalled_time;
+                self.total_distance += ideal_distance as u64;
             }
-            self.total_traveling_time += incremented_travalled_time;
-            self.total_distance += ideal_distance as u64;
         } else {
             panic!("Message has not arrived it should be not added to the statistics")
         }
@@ -106,8 +113,10 @@ impl Edge {
         self.capacity = std::cmp::max(1, capacity);
     }
 
-    pub fn add_message(&mut self, message: Message) {
-        self.total_num_messages_processed += 1;
+    pub fn add_message(&mut self, message: Message, ready_to_observe: bool) {
+        if ready_to_observe {
+            self.total_num_messages_processed += 1
+        };
         self.queue.push_back(message);
     }
 
@@ -241,7 +250,7 @@ mod tests {
     fn test_edge_add_message() {
         let mut edge = Edge::new(10).unwrap();
         let msg = Message::new(0, 1, 0).unwrap();
-        edge.add_message(msg);
+        edge.add_message(msg,true);
 
         assert_eq!(edge.queue_size(), 1);
         assert_eq!(edge.total_num_messages_processed(), 1);
@@ -269,9 +278,9 @@ mod tests {
         let msg2 = Message::new(0, 1, 1).unwrap();
         let msg3 = Message::new(0, 1, 2).unwrap();
 
-        edge.add_message(msg1);
-        edge.add_message(msg2);
-        edge.add_message(msg3);
+        edge.add_message(msg1,true);
+        edge.add_message(msg2,true);
+        edge.add_message(msg3,true);
 
         assert_eq!(edge.queue_size(), 3);
 
@@ -321,7 +330,7 @@ mod tests {
         let mut vertex = Vertex::default();
         let mut msg = Message::new(0, 1, 10).unwrap();
         msg.state = MessageState::Arrived { time_arrived: 10 };
-        vertex.update_statistics(&msg, 10);
+        vertex.update_statistics(&msg, 10,true);
     }
 
     #[test]
@@ -330,7 +339,7 @@ mod tests {
         let mut vertex = Vertex::default();
         let mut msg = Message::new(0, 1, 10).unwrap();
         msg.state = MessageState::InEdge { edge: ((3, 5)) };
-        vertex.update_statistics(&msg, 15);
+        vertex.update_statistics(&msg, 15,true);
     }
 
     #[test]
@@ -341,7 +350,7 @@ mod tests {
         msg.state = MessageState::Arrived { time_arrived: 20 };
 
         let ideal_distance = 5;
-        vertex.update_statistics(&msg, ideal_distance);
+        vertex.update_statistics(&msg, ideal_distance,true);
 
         assert_eq!(vertex.num_arrived_msgs(), 1);
         assert_eq!(vertex.total_traveling_time(), 10); // 20 - 10
@@ -355,7 +364,7 @@ mod tests {
         msg2.state = MessageState::Arrived { time_arrived: 15 };
         let ideal_distance2 = 8;
 
-        vertex.update_statistics(&msg2, ideal_distance2);
+        vertex.update_statistics(&msg2, ideal_distance2,true);
 
         assert_eq!(vertex.num_arrived_msgs(), 2);
         assert_eq!(vertex.total_traveling_time(), 20);

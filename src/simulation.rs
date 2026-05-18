@@ -49,9 +49,10 @@ impl Simulation {
     fn run(&mut self) {
         let warm_up = self.config.warm_up_iterations.unwrap_or(0);
         for _ in 0..self.config.max_iterations.into() {
-            self.message_generate();
+            let ready_to_observe = self.current_time_step >= warm_up;
+            self.message_generate(ready_to_observe);
             self.current_time_step += 1;
-            if self.current_time_step > warm_up {
+            if ready_to_observe {
                 self.observers
                     .iter_mut()
                     .for_each(|o| o.measure(self.current_time_step, &self.edges, &self.vertices));
@@ -68,7 +69,7 @@ impl Simulation {
                     }
                 }
             }
-            self.forward_messages_on_edges();
+            self.forward_messages_on_edges(ready_to_observe);
         }
     }
 
@@ -77,11 +78,13 @@ impl Simulation {
         self.save(hdf5_file);
     }
 
-    fn message_generate(&mut self) {
+    fn message_generate(&mut self, ready_to_observe: bool) {
         for (source_id, source) in self.vertices.iter_mut().enumerate() {
             if self.random_engine.sample_will_send_msg() {
                 let destination = self.random_engine.sample_destination(source_id);
-                source.increment_num_created_messages();
+                if ready_to_observe {
+                    source.increment_num_created_messages();
+                }
                 let msg = {
                     let mut msg = Message::new(source_id, destination, self.current_time_step)
                         .expect("source should be different then destination");
@@ -96,7 +99,7 @@ impl Simulation {
                 match msg.state() {
                     MessageState::InEdge { edge: (from, to) } => {
                         let edge_id = self.graph_with_cache.get_edge_id(from, to);
-                        self.edges[edge_id].add_message(msg);
+                        self.edges[edge_id].add_message(msg, ready_to_observe);
                     }
                     _ => {
                         unreachable!("Message should be in edge after generation.");
@@ -105,7 +108,7 @@ impl Simulation {
             }
         }
     }
-    fn forward_messages_on_edges(&mut self) {
+    fn forward_messages_on_edges(&mut self, ready_to_observe: bool) {
         self.random_engine
             .shuffle_slice(&mut self.shuffled_edge_indices);
         let mut transit_queue: Vec<(usize, Message)> = Vec::new();
@@ -120,7 +123,9 @@ impl Simulation {
                 );
                 match msg.state() {
                     MessageState::InEdge { edge: (from, to) } => {
-                        self.vertices[from].increment_num_traveling_msgs();
+                        if ready_to_observe {
+                            self.vertices[from].increment_num_traveling_msgs();
+                        }
                         let edge_id = self.graph_with_cache.get_edge_id(from, to);
                         transit_queue.push((edge_id, msg));
                     }
@@ -128,7 +133,11 @@ impl Simulation {
                         let ideal_distance = self
                             .graph_with_cache
                             .get_distance(msg.source(), msg.destination());
-                        self.vertices[msg.destination()].update_statistics(&msg, ideal_distance);
+                        self.vertices[msg.destination()].update_statistics(
+                            &msg,
+                            ideal_distance,
+                            ready_to_observe,
+                        );
                     }
                     _ => {
                         unreachable!("Message should be either in edge or arrived after step.");
@@ -137,7 +146,7 @@ impl Simulation {
             }
         }
         for (edge_id, msg) in transit_queue.into_iter() {
-            self.edges[edge_id].add_message(msg);
+            self.edges[edge_id].add_message(msg, ready_to_observe);
         }
     }
 

@@ -1,9 +1,8 @@
-use fixedbitset::FixedBitSet;
 use num_bigint::BigUint;
 use num_rational::Ratio;
 use num_traits::ToPrimitive;
 use petgraph::Graph;
-use petgraph::visit::{Data, EdgeRef, GetAdjacencyMatrix, IntoEdgeReferences, IntoNodeReferences};
+use petgraph::visit::{Data, EdgeRef, IntoEdgeReferences, IntoNodeReferences};
 use petgraph::{self, Directed, Undirected, csr::Csr};
 use rand::Rng;
 use rand_distr::Distribution;
@@ -14,10 +13,7 @@ use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::ops::Deref;
 
-use petgraph::visit::{
-    EdgeCount, GraphBase, GraphProp, IntoNeighbors, IntoNodeIdentifiers, NodeCompactIndexable,
-    NodeCount, NodeIndexable, Visitable,
-};
+use petgraph::visit::{EdgeCount, GraphBase, GraphProp, IntoNeighbors, NodeCount, NodeIndexable};
 use std::path::Path;
 
 type AdjacencyList<N = (), E = ()> = Csr<N, E, Undirected, usize>;
@@ -78,19 +74,19 @@ impl<N, E> NodeCount for PreComputedGraph<N, E> {
     }
 }
 
-impl<N, E> NodeIndexable for PreComputedGraph<N, E> {
-    fn node_bound(&self) -> usize {
-        self.node_count()
-    }
-    fn to_index(&self, a: Self::NodeId) -> usize {
-        a
-    }
-    fn from_index(&self, a: usize) -> Self::NodeId {
-        a
-    }
-}
+// impl<N, E> NodeIndexable for PreComputedGraph<N, E> {
+//     fn node_bound(&self) -> usize {
+//         self.node_count()
+//     }
+//     fn to_index(&self, a: Self::NodeId) -> usize {
+//         a
+//     }
+//     fn from_index(&self, a: usize) -> Self::NodeId {
+//         a
+//     }
+// }
 
-impl<N, E> NodeCompactIndexable for PreComputedGraph<N, E> {}
+// impl<N, E> NodeCompactIndexable for PreComputedGraph<N, E> {}
 
 impl<N, E> EdgeCount for PreComputedGraph<N, E> {
     fn edge_count(&self) -> usize {
@@ -98,81 +94,81 @@ impl<N, E> EdgeCount for PreComputedGraph<N, E> {
     }
 }
 
-impl<N, E> petgraph::visit::EdgeIndexable for PreComputedGraph<N, E> {
-    fn edge_bound(&self) -> usize {
-        self.edge_count()
-    }
-    fn to_index(&self, a: Self::EdgeId) -> usize {
-        a
-    }
-    fn from_index(&self, i: usize) -> Self::EdgeId {
-        i
-    }
-}
+// impl<N, E> petgraph::visit::EdgeIndexable for PreComputedGraph<N, E> {
+//     fn edge_bound(&self) -> usize {
+//         self.edge_count()
+//     }
+//     fn to_index(&self, a: Self::EdgeId) -> usize {
+//         a
+//     }
+//     fn from_index(&self, i: usize) -> Self::EdgeId {
+//         i
+//     }
+// }
 
-impl<N, E> IntoNodeIdentifiers for &PreComputedGraph<N, E> {
-    type NodeIdentifiers = petgraph::csr::NodeIdentifiers<usize>;
-    fn node_identifiers(self) -> Self::NodeIdentifiers {
-        self.adjacency_list.node_identifiers()
-    }
-}
+// impl<N, E> IntoNodeIdentifiers for &PreComputedGraph<N, E> {
+//     type NodeIdentifiers = petgraph::csr::NodeIdentifiers<usize>;
+//     fn node_identifiers(self) -> Self::NodeIdentifiers {
+//         self.adjacency_list.node_identifiers()
+//     }
+// }
 
-impl<'a, N, E> IntoNeighbors for &'a PreComputedGraph<N, E> {
-    type Neighbors = petgraph::csr::Neighbors<'a, usize>;
-    fn neighbors(self, a: Self::NodeId) -> Self::Neighbors {
-        self.adjacency_list.neighbors(a)
-    }
-}
+// impl<'a, N, E> IntoNeighbors for &'a PreComputedGraph<N, E> {
+//     type Neighbors = petgraph::csr::Neighbors<'a, usize>;
+//     fn neighbors(self, a: Self::NodeId) -> Self::Neighbors {
+//         self.adjacency_list.neighbors(a)
+//     }
+// }
 
-impl<N, E> Visitable for PreComputedGraph<N, E> {
-    type Map = FixedBitSet;
-    fn visit_map(&self) -> Self::Map {
-        FixedBitSet::with_capacity(self.node_count())
-    }
-    fn reset_map(&self, map: &mut Self::Map) {
-        map.clear();
-    }
-}
+// impl<N, E> Visitable for PreComputedGraph<N, E> {
+//     type Map = FixedBitSet;
+//     fn visit_map(&self) -> Self::Map {
+//         FixedBitSet::with_capacity(self.node_count())
+//     }
+//     fn reset_map(&self, map: &mut Self::Map) {
+//         map.clear();
+//     }
+// }
 
 impl<N, E> Data for PreComputedGraph<N, E> {
     type NodeWeight = N;
     type EdgeWeight = E;
 }
 
-impl<'a, N, E> IntoNodeReferences for &'a PreComputedGraph<N, E> {
-    type NodeRef = (usize, &'a N);
-    type NodeReferences = petgraph::csr::NodeReferences<'a, N, usize>;
-    fn node_references(self) -> Self::NodeReferences {
-        self.adjacency_list.node_references()
-    }
-}
+// impl<'a, N, E> IntoNodeReferences for &'a PreComputedGraph<N, E> {
+//     type NodeRef = (usize, &'a N);
+//     type NodeReferences = petgraph::csr::NodeReferences<'a, N, usize>;
+//     fn node_references(self) -> Self::NodeReferences {
+//         self.adjacency_list.node_references()
+//     }
+// }
 
-impl<'a, N, E> IntoEdgeReferences for &'a PreComputedGraph<N, E> {
-    type EdgeRef = petgraph::csr::EdgeReference<'a, E, petgraph::Undirected, usize>;
-    type EdgeReferences = petgraph::csr::EdgeReferences<'a, E, petgraph::Undirected, usize>;
-    fn edge_references(self) -> Self::EdgeReferences {
-        self.adjacency_list.edge_references()
-    }
-}
+// impl<'a, N, E> IntoEdgeReferences for &'a PreComputedGraph<N, E> {
+//     type EdgeRef = petgraph::csr::EdgeReference<'a, E, petgraph::Undirected, usize>;
+//     type EdgeReferences = petgraph::csr::EdgeReferences<'a, E, petgraph::Undirected, usize>;
+//     fn edge_references(self) -> Self::EdgeReferences {
+//         self.adjacency_list.edge_references()
+//     }
+// }
 
-impl<'a, N, E> petgraph::visit::IntoEdges for &'a PreComputedGraph<N, E> {
-    type Edges = petgraph::csr::Edges<'a, E, petgraph::Undirected, usize>;
-    fn edges(self, a: Self::NodeId) -> Self::Edges {
-        self.adjacency_list.edges(a)
-    }
-}
+// impl<'a, N, E> petgraph::visit::IntoEdges for &'a PreComputedGraph<N, E> {
+//     type Edges = petgraph::csr::Edges<'a, E, petgraph::Undirected, usize>;
+//     fn edges(self, a: Self::NodeId) -> Self::Edges {
+//         self.adjacency_list.edges(a)
+//     }
+// }
 
-impl<N, E> GetAdjacencyMatrix for &PreComputedGraph<N, E> {
-    type AdjMatrix = FixedBitSet;
+// impl<N, E> GetAdjacencyMatrix for &PreComputedGraph<N, E> {
+//     type AdjMatrix = FixedBitSet;
 
-    fn adjacency_matrix(&self) -> Self::AdjMatrix {
-        (&self.adjacency_list).adjacency_matrix()
-    }
+//     fn adjacency_matrix(&self) -> Self::AdjMatrix {
+//         (&self.adjacency_list).adjacency_matrix()
+//     }
 
-    fn is_adjacent(&self, matrix: &Self::AdjMatrix, a: usize, b: usize) -> bool {
-        (&self.adjacency_list).is_adjacent(matrix, a, b)
-    }
-}
+//     fn is_adjacent(&self, matrix: &Self::AdjMatrix, a: usize, b: usize) -> bool {
+//         (&self.adjacency_list).is_adjacent(matrix, a, b)
+//     }
+// }
 
 fn get_sorted_edges_from_edgefile(path: &Path) -> Vec<(usize, usize)> {
     let file = File::open(path).expect("Failed to open edgelist file");

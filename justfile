@@ -1,6 +1,5 @@
 set shell := ["sh", "-eu", "-c"]
 
-
 default:
     just --list
 
@@ -9,8 +8,7 @@ install-devtools:
 
 quick_check:
     clear
-    cargo check --workspace --bins --message-format=short
-
+    cargo check --workspace --bins --tests --message-format=short
 
 coverage:
     cargo llvm-cov clean --workspace
