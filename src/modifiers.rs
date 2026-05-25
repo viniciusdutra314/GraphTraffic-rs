@@ -68,10 +68,13 @@ impl Modifier for ModifierEdgeCapacity {
                     (occurrences as f64) / (self.free_flow_sampling_time as f64);
 
                 if cumulative_probability >= self.free_flow_rate {
-                    edge.set_capacity(cmp::max(
+                    let new_capacity = cmp::max(
                         self.minimal_capacity as usize,
                         f64::ceil(queue_size as f64 * self.multiplier) as usize,
-                    ));
+                    );
+                    let old_capacity = edge.capacity();
+                    let geom_mean = f64::sqrt((new_capacity * old_capacity) as f64).ceil() as usize;
+                    edge.set_capacity(geom_mean);
                     break;
                 }
             }
