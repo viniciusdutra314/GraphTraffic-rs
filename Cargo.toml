@@ -4,7 +4,8 @@ version = "0.1.0"
 edition = "2024"
 authors = ["Vinícius Sousa Dutra <dutravinisousa2@usp.br>"]
 rust-version = "1.88.0"
-
+license-file="LICENSE"
+license="MIT"
 [profile.release]
 opt-level = 3
 strip = true
@@ -58,4 +59,3 @@ rustworkx-core = "0.17.1"
 petgraph = { version = "0.8.3", default-features = false,features=["dot_parser"] }
 palette = "0.7.6"
 assert_cmd = "2.2.2"
-

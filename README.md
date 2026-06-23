@@ -4,6 +4,8 @@ Rust simulator for network traffic on connected undirected graphs. It loads grap
 
 It's based on the Traffic Routing Model defined on Chen, Shengyong, Wei Huang, Carlo Cattani, and Giuseppe Altieri. “Traffic Dynamics on Complex Networks: A Survey.” Mathematical Problems in Engineering 2012, no. 1 (2012): 732698. https://doi.org/10.1155/2012/732698. One important diference is that the edges and not the vertices, are thought to transport the messages and have a capacity.
 
+This project was derived from my [undergraduate thesis](https://github.com/viniciusdutra314/undergraduate-thesis)
+
 
 ## Highlights
 
