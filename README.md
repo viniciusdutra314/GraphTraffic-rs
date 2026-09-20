@@ -16,7 +16,27 @@ This project was derived from my [undergraduate thesis](https://github.com/vinic
 
 ## Requirements
 
-- Rust 1.88+
+- Nix with flakes enabled (for the reproducible build), or Rust 1.88.0 and the native HDF5 build dependencies installed separately.
+
+## Reproducible build with Nix
+
+The flake pins Nixpkgs and the Rust overlay in `flake.lock`. It uses the exact Rust toolchain from `rust-toolchain.toml` and builds HDF5 from source through the crate's `static` feature. No root access or system HDF5 installation is needed.
+
+```bash
+nix --extra-experimental-features 'nix-command flakes' develop
+cargo build --locked --release
+cargo test --locked
+```
+
+To build and test in the Nix sandbox, or run the resulting program:
+
+```bash
+nix --extra-experimental-features 'nix-command flakes' build
+./result/bin/graph_traffic --help
+```
+
+If flakes are already enabled in your Nix configuration, use `nix develop` and `nix build` directly.
+
 ## Build
 
 ```bash
