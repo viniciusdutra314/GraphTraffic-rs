@@ -296,9 +296,7 @@ mod tests {
             json!([{
                 "type": "ModifierEdgeCapacity",
                 "free_flow_rate": 0.5,
-                "free_flow_sampling_time": 1,
-                "minimal_capacity": 1,
-                "multiplier": 1.0
+                "free_flow_sampling_time": 1
             }]),
         );
         let simulation_uuid = config.uuid.to_string();

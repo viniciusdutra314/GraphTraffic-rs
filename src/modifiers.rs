@@ -28,8 +28,6 @@ pub struct ModifierEdgeCapacity {
     inner_sensor: ObserverEdgeQueue,
     free_flow_rate: f64,
     free_flow_sampling_time: u64,
-    minimal_capacity: u64,
-    multiplier: f64,
 }
 
 impl ModifierEdgeCapacity {
@@ -38,8 +36,6 @@ impl ModifierEdgeCapacity {
             inner_sensor: ObserverEdgeQueue::new(graph.edge_count()),
             free_flow_rate: config.free_flow_rate,
             free_flow_sampling_time: config.free_flow_sampling_time,
-            minimal_capacity: config.minimal_capacity,
-            multiplier: config.multiplier,
         };
     }
 }
@@ -68,10 +64,7 @@ impl Modifier for ModifierEdgeCapacity {
                     (occurrences as f64) / (self.free_flow_sampling_time as f64);
 
                 if cumulative_probability >= self.free_flow_rate {
-                    let new_capacity = cmp::max(
-                        self.minimal_capacity as usize,
-                        f64::ceil(queue_size as f64 * self.multiplier) as usize,
-                    );
+                    let new_capacity = cmp::max(1, queue_size);
                     let old_capacity = edge.capacity();
                     let geom_mean = f64::sqrt((new_capacity * old_capacity) as f64).ceil() as usize;
                     edge.set_capacity(geom_mean);

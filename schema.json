@@ -120,9 +120,7 @@
             "required": [
                 "type",
                 "free_flow_rate",
-                "free_flow_sampling_time",
-                "minimal_capacity",
-                "multiplier"
+                "free_flow_sampling_time"
             ],
             "properties": {
                 "type": { "const": "ModifierEdgeCapacity" },
@@ -134,14 +132,6 @@
                 "free_flow_sampling_time": {
                     "type": "integer",
                     "minimum": 0
-                },
-                "minimal_capacity": {
-                    "type": "integer",
-                    "minimum": 0
-                },
-                "multiplier": {
-                    "type": "number",
-                    "exclusiveMinimum": 0.0
                 }
             },
             "additionalProperties": false
