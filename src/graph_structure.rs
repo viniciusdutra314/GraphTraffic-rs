@@ -2,18 +2,18 @@ use num_bigint::BigUint;
 use num_rational::Ratio;
 use num_traits::ToPrimitive;
 use petgraph::Graph;
-use petgraph::visit::{Data, EdgeRef, IntoEdgeReferences, IntoNodeReferences};
+use petgraph::visit::{EdgeRef, IntoEdgeReferences, IntoNodeReferences};
 use petgraph::{self, Directed, Undirected, csr::Csr};
 use rand::Rng;
 use rand_distr::Distribution;
 use rand_distr::num_traits::{One, Zero};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::ops::Deref;
 
-use petgraph::visit::{EdgeCount, GraphBase, GraphProp, IntoNeighbors, NodeCount, NodeIndexable};
+use petgraph::visit::{EdgeCount, IntoNeighbors, NodeCount, NodeIndexable};
 use std::path::Path;
 
 type AdjacencyList<N = (), E = ()> = Csr<N, E, Undirected, usize>;
@@ -53,175 +53,92 @@ where
     }
 }
 
-pub struct PreComputedGraph<N = (), E = ()> {
-    adjacency_list: AdjacencyList<N, E>,
+pub struct PreComputedGraph {
+    adjacency_list: AdjacencyList,
     edge_lookup: HashMap<(usize, usize), usize>,
     shortest_path_dags: Vec<ShortestPathDAG>,
 }
 
-impl<N, E> GraphBase for PreComputedGraph<N, E> {
-    type NodeId = usize;
-    type EdgeId = usize;
-}
-
-impl<N, E> GraphProp for PreComputedGraph<N, E> {
-    type EdgeType = Undirected;
-}
-
-impl<N, E> NodeCount for PreComputedGraph<N, E> {
-    fn node_count(&self) -> usize {
-        self.adjacency_list.node_count()
-    }
-}
-
-// impl<N, E> NodeIndexable for PreComputedGraph<N, E> {
-//     fn node_bound(&self) -> usize {
-//         self.node_count()
-//     }
-//     fn to_index(&self, a: Self::NodeId) -> usize {
-//         a
-//     }
-//     fn from_index(&self, a: usize) -> Self::NodeId {
-//         a
-//     }
-// }
-
-// impl<N, E> NodeCompactIndexable for PreComputedGraph<N, E> {}
-
-impl<N, E> EdgeCount for PreComputedGraph<N, E> {
-    fn edge_count(&self) -> usize {
-        self.edge_lookup.len()
-    }
-}
-
-// impl<N, E> petgraph::visit::EdgeIndexable for PreComputedGraph<N, E> {
-//     fn edge_bound(&self) -> usize {
-//         self.edge_count()
-//     }
-//     fn to_index(&self, a: Self::EdgeId) -> usize {
-//         a
-//     }
-//     fn from_index(&self, i: usize) -> Self::EdgeId {
-//         i
-//     }
-// }
-
-// impl<N, E> IntoNodeIdentifiers for &PreComputedGraph<N, E> {
-//     type NodeIdentifiers = petgraph::csr::NodeIdentifiers<usize>;
-//     fn node_identifiers(self) -> Self::NodeIdentifiers {
-//         self.adjacency_list.node_identifiers()
-//     }
-// }
-
-// impl<'a, N, E> IntoNeighbors for &'a PreComputedGraph<N, E> {
-//     type Neighbors = petgraph::csr::Neighbors<'a, usize>;
-//     fn neighbors(self, a: Self::NodeId) -> Self::Neighbors {
-//         self.adjacency_list.neighbors(a)
-//     }
-// }
-
-// impl<N, E> Visitable for PreComputedGraph<N, E> {
-//     type Map = FixedBitSet;
-//     fn visit_map(&self) -> Self::Map {
-//         FixedBitSet::with_capacity(self.node_count())
-//     }
-//     fn reset_map(&self, map: &mut Self::Map) {
-//         map.clear();
-//     }
-// }
-
-impl<N, E> Data for PreComputedGraph<N, E> {
-    type NodeWeight = N;
-    type EdgeWeight = E;
-}
-
-// impl<'a, N, E> IntoNodeReferences for &'a PreComputedGraph<N, E> {
-//     type NodeRef = (usize, &'a N);
-//     type NodeReferences = petgraph::csr::NodeReferences<'a, N, usize>;
-//     fn node_references(self) -> Self::NodeReferences {
-//         self.adjacency_list.node_references()
-//     }
-// }
-
-// impl<'a, N, E> IntoEdgeReferences for &'a PreComputedGraph<N, E> {
-//     type EdgeRef = petgraph::csr::EdgeReference<'a, E, petgraph::Undirected, usize>;
-//     type EdgeReferences = petgraph::csr::EdgeReferences<'a, E, petgraph::Undirected, usize>;
-//     fn edge_references(self) -> Self::EdgeReferences {
-//         self.adjacency_list.edge_references()
-//     }
-// }
-
-// impl<'a, N, E> petgraph::visit::IntoEdges for &'a PreComputedGraph<N, E> {
-//     type Edges = petgraph::csr::Edges<'a, E, petgraph::Undirected, usize>;
-//     fn edges(self, a: Self::NodeId) -> Self::Edges {
-//         self.adjacency_list.edges(a)
-//     }
-// }
-
-// impl<N, E> GetAdjacencyMatrix for &PreComputedGraph<N, E> {
-//     type AdjMatrix = FixedBitSet;
-
-//     fn adjacency_matrix(&self) -> Self::AdjMatrix {
-//         (&self.adjacency_list).adjacency_matrix()
-//     }
-
-//     fn is_adjacent(&self, matrix: &Self::AdjMatrix, a: usize, b: usize) -> bool {
-//         (&self.adjacency_list).is_adjacent(matrix, a, b)
-//     }
-// }
-
-fn get_sorted_edges_from_edgefile(path: &Path) -> Vec<(usize, usize)> {
-    let file = File::open(path).expect("Failed to open edgelist file");
+fn get_sorted_edges_from_edgefile(path: &Path) -> (Vec<(usize, usize)>, Vec<(usize, usize)>) {
+    let file =
+        File::open(path).unwrap_or_else(|e| panic!("Cannot open edgelist {}: {e}", path.display()));
     let mut reader = BufReader::new(file);
     let mut v_str = String::new();
     reader
         .read_line(&mut v_str)
-        .expect("Failed to read number of vertices");
-    let _: usize = v_str
+        .expect("Cannot read edgelist header");
+    let v: usize = v_str
         .trim()
         .parse()
-        .expect("Failed to parse number of vertices");
+        .expect("Invalid vertex count on edgelist line 1");
     let mut e_str = String::new();
     reader
         .read_line(&mut e_str)
-        .expect("Failed to read number of edges");
+        .expect("Cannot read edgelist header");
     let e: usize = e_str
         .trim()
         .parse()
-        .expect("Failed to parse number of edges");
-    let sorted_edges_duplicated: Vec<(usize, usize)> = {
-        let mut sorted_edges = Vec::with_capacity(2 * e);
-        for line in reader.lines() {
-            let line = line.expect("Failed to read line");
-            let parts: Vec<&str> = line.split_whitespace().collect();
-            let from: usize = parts[0].parse().expect("Failed to parse source node ID");
-            let to: usize = parts[1]
-                .parse()
-                .expect("Failed to parse destination node ID");
-            if from == to {
-                panic!("Self-loops are not allowed in the graph");
-            }
-            sorted_edges.push((from, to));
-            sorted_edges.push((to, from));
-        }
-        sorted_edges.sort_unstable();
-        // removes possible parallel edges
-        sorted_edges.dedup();
-        sorted_edges
-    };
-    return sorted_edges_duplicated;
-}
-
-impl PreComputedGraph<(), ()> {
-    pub fn from_edgelist_file(path: &Path) -> Self {
-        let sorted_edges_duplicated = get_sorted_edges_from_edgefile(path);
-        let adjacency_list = AdjacencyList::from_sorted_edges(&sorted_edges_duplicated).unwrap();
-        Self::from_adjlist(adjacency_list)
+        .expect("Invalid edge count on edgelist line 2");
+    assert!(
+        v >= 2 && e > 0,
+        "Edgelist must contain at least two vertices and one edge"
+    );
+    let mut sorted_edges = Vec::with_capacity(2 * e);
+    let mut file_edges = Vec::with_capacity(e);
+    let mut seen = HashSet::with_capacity(e);
+    for (index, line) in reader.lines().enumerate() {
+        let number = index + 3;
+        let line = line.unwrap_or_else(|err| panic!("Cannot read edgelist line {number}: {err}"));
+        let mut parts = line.split_whitespace();
+        let from: usize = parts
+            .next()
+            .unwrap_or_else(|| panic!("Malformed edgelist line {number}"))
+            .parse()
+            .unwrap_or_else(|_| panic!("Malformed edgelist line {number}"));
+        let to: usize = parts
+            .next()
+            .unwrap_or_else(|| panic!("Malformed edgelist line {number}"))
+            .parse()
+            .unwrap_or_else(|_| panic!("Malformed edgelist line {number}"));
+        assert!(parts.next().is_none(), "Malformed edgelist line {number}");
+        assert!(
+            from < v && to < v,
+            "Vertex out of range on edgelist line {number}"
+        );
+        assert_ne!(from, to, "Self-loop on edgelist line {number}");
+        let pair = (from.min(to), from.max(to));
+        assert!(
+            seen.insert(pair),
+            "Duplicate edge on edgelist line {number}"
+        );
+        file_edges.push(pair);
+        sorted_edges.push((from, to));
+        sorted_edges.push((to, from));
     }
+    assert_eq!(
+        file_edges.len(),
+        e,
+        "Edgelist declares {e} edges but contains {}",
+        file_edges.len()
+    );
+    sorted_edges.sort_unstable();
+    (sorted_edges, file_edges)
 }
 
-impl<N: Sync, E: Sync> PreComputedGraph<N, E> {
-    pub fn from_adjlist(adjacency_list: AdjacencyList<N, E>) -> Self {
+impl PreComputedGraph {
+    pub fn from_edgelist_file(path: &Path) -> Self {
+        let (sorted_edges_duplicated, file_edges) = get_sorted_edges_from_edgefile(path);
+        let adjacency_list = AdjacencyList::from_sorted_edges(&sorted_edges_duplicated)
+            .unwrap_or_else(|e| panic!("Invalid edgelist {}: {e:?}", path.display()));
+        // These IDs index Simulation.edges, whose capacities follow the edgelist line order.
+        let edge_lookup = file_edges
+            .into_iter()
+            .enumerate()
+            .map(|(id, edge)| (edge, id))
+            .collect();
+        Self::with_edge_lookup(adjacency_list, edge_lookup)
+    }
+    pub fn from_adjlist(adjacency_list: AdjacencyList) -> Self {
         let edge_lookup = {
             let mut edge_lookup = HashMap::new();
             let mut edge_id = 0;
@@ -235,6 +152,13 @@ impl<N: Sync, E: Sync> PreComputedGraph<N, E> {
             }
             edge_lookup
         };
+        Self::with_edge_lookup(adjacency_list, edge_lookup)
+    }
+
+    fn with_edge_lookup(
+        adjacency_list: AdjacencyList,
+        edge_lookup: HashMap<(usize, usize), usize>,
+    ) -> Self {
         let shortest_path_dags: Vec<ShortestPathDAG> = (0..adjacency_list.node_count())
             .into_par_iter()
             .map(|source| build_shortest_path_dag(&adjacency_list, source))
@@ -244,6 +168,14 @@ impl<N: Sync, E: Sync> PreComputedGraph<N, E> {
             edge_lookup,
             shortest_path_dags,
         }
+    }
+
+    pub fn node_count(&self) -> usize {
+        self.adjacency_list.node_count()
+    }
+
+    pub fn edge_count(&self) -> usize {
+        self.edge_lookup.len()
     }
 
     pub fn save_edgelist_hdf5(&self, group: &hdf5_metno::Group) {
@@ -473,6 +405,31 @@ mod tests {
     }
 
     #[test]
+    fn edgelist_rejects_invalid_edges_and_counts() {
+        use uuid::Uuid;
+        for (contents, expected) in [
+            ("3\n1\n0 0\n", "Self-loop"),
+            ("3\n2\n0 1\n0 1\n", "Duplicate edge"),
+            ("3\n2\n0 1\n1 0\n", "Duplicate edge"),
+            ("3\n1\n0\n", "Malformed"),
+            ("3\n1\n0 1 2\n", "Malformed"),
+            ("3\n2\n0 1\n", "declares 2 edges"),
+            ("3\n1\n0 1\n1 2\n", "declares 1 edges"),
+            ("3\n1\n0 3\n", "out of range"),
+            ("4\n2\n0 1\n2 3\n", "connected"),
+            ("4\n2\n0 1\n1 2\n", "connected"),
+        ] {
+            let path = std::env::temp_dir().join(format!("invalid_{}.edgelist", Uuid::new_v4()));
+            std::fs::write(&path, contents).unwrap();
+            let panic = std::panic::catch_unwind(|| PreComputedGraph::from_edgelist_file(&path))
+                .err()
+                .expect("invalid edgelist should panic");
+            assert!(crate::test_utils::panic_message(panic).contains(expected));
+            std::fs::remove_file(path).unwrap();
+        }
+    }
+
+    #[test]
     fn test_dag_specific_example() {
         use petgraph::dot::*;
         let mut edges = vec![
@@ -528,7 +485,7 @@ mod tests {
             Config::NodeNoLabel,
             Config::RankDir(RankDir::BT),
         ];
-        let graph = PreComputedGraph::<u16, u16>::from_adjlist(csr_graph_doubled);
+        let graph = PreComputedGraph::from_adjlist(csr_graph_doubled);
 
         println!("{}", Dot::with_config(&(csr_graph), &dot_config));
         println!("dag dot");

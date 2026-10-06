@@ -55,7 +55,7 @@ cargo run -- <path/to/config.json> [--output-file-hdf5 <path/to/output.hdf5>] [-
 
 ### Example (`examples/config.json`)
 
-This repo ships a json configuration and a tiny graph in `examples/`. Run it with:
+This repo ships a JSON configuration, a tiny graph, and its initial capacities in `examples/`. Run it with:
 
 ```bash
 cargo run -- examples/config.json
@@ -78,8 +78,10 @@ The graph is read from a text file with the following layout:
 - Nodes are identified by integer indices (0-based and compact interval [0,N-1] is expected ).
 - The graph is treated as **undirected**. Each listed edge is duplicated internally.
 - Self-loops are rejected.
-- Parallel edges are deduplicated.
-- The graph must be connected; otherwise, shortest-path precomputation will panic.
+- Parallel edges, including reversed duplicates, are rejected.
+- The graph must be connected; invalid input causes a panic with an explanatory message.
+
+Each simulation item must also provide `initial_capacity`, the path to a text file with one positive integer per graph edge. The first capacity belongs to the first edge line after the two edgelist headers, and so on. Graph edge IDs and the simulation's edge vector follow this file order. The file must contain exactly the declared number of edges.
 
 ## Configuration (`config.json`)
 
@@ -92,6 +94,7 @@ The config file is a JSON **array** of simulation items. The schema is defined i
   {
     "uuid": "123e4567-e89b-12d3-a456-426614174000",
     "graph_file_name": "graphs/grid.edgelist",
+    "initial_capacity": "graphs/grid.capacity",
     "message_generation": 0.2,
     "max_iterations": 1000,
     "warm_up_iterations": 100,

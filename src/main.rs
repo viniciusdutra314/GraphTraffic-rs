@@ -94,9 +94,9 @@ fn run(cli_args: cli::Cli) -> Result<(), String> {
             let graph_uuid = std::path::Path::new(graph_file_name)
                 .file_stem()
                 .and_then(|s| s.to_str())
-                .unwrap();
+                        .unwrap();
 
-            let graph_group = graphs_datagroup.create_group(graph_uuid).unwrap();
+                    let graph_group = graphs_datagroup.create_group(graph_uuid).unwrap();
             num_caches_in_memory.fetch_add(1, Ordering::SeqCst);
             graph_cache.save_edgelist_hdf5(&graph_group);
             graph_cache
@@ -237,6 +237,7 @@ mod tests {
     fn cfg(graph: &str) -> SimulationConfigurationItem {
         SimulationConfigurationItem {
             graph_file_name: graph.to_string(),
+            initial_capacity: "capacity.txt".to_string(),
             max_iterations: NonZero::new(10).unwrap(),
             uuid: uuid::Uuid::new_v4(),
             graph_generation_info: Map::new(),

@@ -1,5 +1,3 @@
-use petgraph::visit::{EdgeCount, NodeCount};
-
 use crate::SimulationConfigurationItem;
 use crate::graph_dynamics::{Edge, HDF5Edge, Message, MessageState, Vertex};
 use crate::graph_structure::PreComputedGraph;
@@ -39,7 +37,7 @@ impl Simulation {
             graph_with_cache: graph_cache,
             config: config.clone(),
             random_engine: RandomEngine::new(seed, config.message_generation, v).unwrap(),
-            edges: vec![Edge::new(1).unwrap(); e],
+            edges: config.create_initial_edges(e),
             vertices: vec![Vertex::default(); v],
             observers: observers,
             modifiers: modifiers,
@@ -199,11 +197,13 @@ mod tests {
 
     fn build_config(
         graph_file_name: &str,
+        capacity_path: &std::path::Path,
         max_iterations: u64,
         warm_up_iterations: Option<u64>,
     ) -> SimulationConfigurationItem {
         build_config_with_modifiers(
             graph_file_name,
+            capacity_path,
             max_iterations,
             warm_up_iterations,
             json!([]),
@@ -212,6 +212,7 @@ mod tests {
 
     fn build_config_with_modifiers(
         graph_file_name: &str,
+        capacity_path: &std::path::Path,
         max_iterations: u64,
         warm_up_iterations: Option<u64>,
         modifiers: serde_json::Value,
@@ -219,6 +220,7 @@ mod tests {
         let cfg = json!({
             "uuid": Uuid::new_v4().to_string(),
             "graph_file_name": graph_file_name,
+            "initial_capacity": capacity_path.to_str().unwrap(),
             "message_generation": 1.0,
             "max_iterations": max_iterations,
             "warm_up_iterations": warm_up_iterations,
@@ -233,7 +235,13 @@ mod tests {
     #[test]
     fn simulation_initializes_internal_state() {
         let graph_cache = crate::test_utils::dummy_graph_cache();
-        let config = build_config("simulation_new_initializes_internal_state", 5, Some(0));
+        let capacity_path = write_temp_edgelist("unit_capacities", "1\n1\n");
+        let config = build_config(
+            "simulation_new_initializes_internal_state",
+            &capacity_path,
+            5,
+            Some(0),
+        );
 
         let simulation = Simulation::new(graph_cache.clone(), &config);
         assert_eq!(simulation.current_time_step, 0);
@@ -245,6 +253,54 @@ mod tests {
         );
         assert!(simulation.observers.is_empty());
         assert!(simulation.modifiers.is_empty());
+        assert!(simulation.edges.iter().all(|edge| edge.capacity() == 1));
+        std::fs::remove_file(capacity_path).unwrap();
+    }
+
+    #[test]
+    fn initial_capacity_follows_file_order_and_validates_values() {
+        let graph_path = write_temp_edgelist("capacity_order", "4\n3\n2 3\n0 1\n1 2\n");
+        let graph = Arc::new(PreComputedGraph::from_edgelist_file(&graph_path));
+        let capacity_path = write_temp_edgelist("capacities", "7\n2\n9\n");
+        let mut config = build_config(graph_path.to_str().unwrap(), &capacity_path, 5, Some(0));
+        let simulation = Simulation::new(graph.clone(), &config);
+        assert_eq!(graph.get_edge_id(2, 3), 0);
+        assert_eq!(graph.get_edge_id(0, 1), 1);
+        assert_eq!(graph.get_edge_id(1, 2), 2);
+        assert_eq!(
+            simulation
+                .edges
+                .iter()
+                .map(Edge::capacity)
+                .collect::<Vec<_>>(),
+            vec![7, 2, 9]
+        );
+        assert_eq!(simulation.edges[graph.get_edge_id(2, 3)].capacity(), 7);
+        assert_eq!(simulation.edges[graph.get_edge_id(0, 1)].capacity(), 2);
+        assert_eq!(simulation.edges[graph.get_edge_id(1, 2)].capacity(), 9);
+        for (contents, expected) in [
+            ("7\n2\n", "expected 3"),
+            ("7\n2\n9\n4\n", "more than 3"),
+            ("7\n0\n9\n", "Zero capacity"),
+            ("7\n-2\n9\n", "Invalid positive integer"),
+            ("7\n2.5\n9\n", "Invalid positive integer"),
+        ] {
+            std::fs::write(&capacity_path, contents).unwrap();
+            let panic = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                Simulation::new(graph.clone(), &config)
+            }))
+            .err()
+            .expect("invalid capacity should panic");
+            assert!(crate::test_utils::panic_message(panic).contains(expected));
+        }
+        let other_path = write_temp_edgelist("other_capacities", "1\n1\n1\n");
+        config.initial_capacity = other_path.to_str().unwrap().to_string();
+        let other = Simulation::new(graph.clone(), &config);
+        assert!(Arc::ptr_eq(&graph, &other.graph_with_cache));
+        assert!(other.edges.iter().all(|edge| edge.capacity() == 1));
+        std::fs::remove_file(graph_path).unwrap();
+        std::fs::remove_file(capacity_path).unwrap();
+        std::fs::remove_file(other_path).unwrap();
     }
 
     #[test]
@@ -255,7 +311,8 @@ mod tests {
             edge_list,
         );
         let graph_cache = Arc::new(PreComputedGraph::from_edgelist_file(&graph_path));
-        let config = build_config(graph_path.to_str().unwrap(), 3, Some(0));
+        let capacity_path = write_temp_edgelist("run_save_capacities", "1\n1\n");
+        let config = build_config(graph_path.to_str().unwrap(), &capacity_path, 3, Some(0));
         let simulation_uuid = config.uuid.to_string();
 
         let hdf5_path =
@@ -278,6 +335,7 @@ mod tests {
         assert_eq!(edges_shape[0], graph_cache.edge_count());
 
         std::fs::remove_file(graph_path).unwrap();
+        std::fs::remove_file(capacity_path).unwrap();
         std::fs::remove_file(hdf5_path).unwrap();
     }
 
@@ -289,8 +347,10 @@ mod tests {
             edge_list,
         );
         let graph_cache = Arc::new(PreComputedGraph::from_edgelist_file(&graph_path));
+        let capacity_path = write_temp_edgelist("modifier_capacities", "1\n1\n");
         let config = build_config_with_modifiers(
             graph_path.to_str().unwrap(),
+            &capacity_path,
             4,
             Some(0),
             json!([{
@@ -317,6 +377,7 @@ mod tests {
         assert_eq!(edges_data.len(), graph_cache.edge_count());
 
         std::fs::remove_file(graph_path).unwrap();
+        std::fs::remove_file(capacity_path).unwrap();
         std::fs::remove_file(hdf5_path).unwrap();
     }
 }

@@ -8,6 +8,7 @@
         "required": [
             "uuid",
             "graph_file_name",
+            "initial_capacity",
             "message_generation",
             "max_iterations",
             "routing_method"
@@ -35,6 +36,9 @@
                 ]
             },
             "graph_file_name": {
+                "type": "string"
+            },
+            "initial_capacity": {
                 "type": "string"
             },
             "message_generation": {

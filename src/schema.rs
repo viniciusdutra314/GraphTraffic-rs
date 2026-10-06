@@ -1,5 +1,46 @@
 include!(concat!(env!("OUT_DIR"), "/generated_types.rs"));
 
+use crate::graph_dynamics::Edge;
+use std::fs::File;
+use std::io::{BufRead, BufReader};
+
+impl SimulationConfigurationItem {
+    pub fn create_initial_edges(&self, edge_count: usize) -> Vec<Edge> {
+        let path = &self.initial_capacity;
+        let file = File::open(path)
+            .unwrap_or_else(|err| panic!("Cannot open initial_capacity {path}: {err}"));
+        let mut edges = Vec::with_capacity(edge_count);
+        for (index, line) in BufReader::new(file).lines().enumerate() {
+            let line = line.unwrap_or_else(|err| {
+                panic!("Cannot read initial_capacity line {}: {err}", index + 1)
+            });
+            let capacity: usize = line.trim().parse().unwrap_or_else(|_| {
+                panic!(
+                    "Invalid positive integer on initial_capacity line {}",
+                    index + 1
+                )
+            });
+            assert!(
+                capacity > 0,
+                "Zero capacity on initial_capacity line {}",
+                index + 1
+            );
+            assert!(
+                edges.len() < edge_count,
+                "initial_capacity has more than {edge_count} capacities"
+            );
+            edges.push(Edge::new(capacity).unwrap());
+        }
+        assert_eq!(
+            edges.len(),
+            edge_count,
+            "initial_capacity has {} capacities; expected {edge_count}",
+            edges.len()
+        );
+        edges
+    }
+}
+
 pub type RoutingMethod = SimulationConfigurationItemRoutingMethod;
 pub static JSON_SIMULATION_VALIDATOR: std::sync::LazyLock<jsonschema::Validator> =
     std::sync::LazyLock::new(|| {
@@ -32,6 +73,7 @@ mod tests {
         json!({
             "uuid": "123e4567-e89b-12d3-a456-426614174000",
             "graph_file_name": "graph.txt",
+            "initial_capacity": "capacity.txt",
             "message_generation": 0.5,
             "max_iterations": 100,
             "warm_up_iterations": 10,
@@ -79,6 +121,16 @@ mod tests {
             !validate_json_simulation(&json!([item]), &JSON_SIMULATION_VALIDATOR),
             "graph_file_name as number should fail"
         );
+    }
+
+    #[test]
+    fn test_initial_capacity_is_required() {
+        let mut item = valid_config_item();
+        item.as_object_mut().unwrap().remove("initial_capacity");
+        assert!(!validate_json_simulation(
+            &json!([item]),
+            &JSON_SIMULATION_VALIDATOR
+        ));
     }
     #[test]
     fn test_message_generation_constraints() {

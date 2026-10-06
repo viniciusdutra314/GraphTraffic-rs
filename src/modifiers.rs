@@ -1,4 +1,3 @@
-use petgraph::visit::EdgeCount;
 use std::cmp;
 
 use crate::graph_dynamics::{Edge, Vertex};

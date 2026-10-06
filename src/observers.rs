@@ -1,9 +1,7 @@
-use petgraph::visit::EdgeCount;
-
 use crate::graph_dynamics::{Edge, Vertex};
 use crate::graph_structure::PreComputedGraph;
 use crate::schema::SimulationConfigurationItemObserversItem as ConfigObserverEnum;
-use std::collections::{HashMap};
+use std::collections::HashMap;
 use std::num::NonZero;
 
 pub trait Observer {

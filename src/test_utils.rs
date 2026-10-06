@@ -16,6 +16,15 @@ pub fn dummy_graph_cache() -> Arc<PreComputedGraph> {
     let graph_path = write_temp_edgelist("simulation_new_initializes_internal_state", edge_list);
     Arc::new(PreComputedGraph::from_edgelist_file(&graph_path))
 }
+pub fn panic_message(panic: Box<dyn std::any::Any + Send>) -> String {
+    if let Some(message) = panic.downcast_ref::<String>() {
+        message.clone()
+    } else if let Some(message) = panic.downcast_ref::<&str>() {
+        (*message).to_string()
+    } else {
+        String::new()
+    }
+}
 pub fn dummy_random_generator() -> crate::random_engine::RandomEngine {
     crate::random_engine::RandomEngine::new(None, 0.5, 1).unwrap()
 }
