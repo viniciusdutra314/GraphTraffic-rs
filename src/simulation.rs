@@ -135,7 +135,9 @@ impl Simulation {
                         self.vertices[msg.destination()].update_statistics(
                             &msg,
                             ideal_distance,
-                            ready_to_observe,
+                            ready_to_observe
+                                && msg.time_creation()
+                                    >= self.config.warm_up_iterations.unwrap_or(0),
                         );
                     }
                     _ => {
