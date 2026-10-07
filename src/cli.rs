@@ -11,8 +11,16 @@ pub struct Cli {
     pub output_file_hdf5: Option<PathBuf>,
     #[arg(short,long,default_value_t=default_thread_count())]
     pub threads: usize,
-    #[arg(short, long, default_value_t = false)]
+    #[arg(
+        short,
+        long,
+        visible_alias = "overwrite",
+        conflicts_with = "append",
+        default_value_t = false
+    )]
     pub force: bool,
+    #[arg(long, conflicts_with = "force", default_value_t = false)]
+    pub append: bool,
 }
 
 fn default_thread_count() -> usize {
@@ -144,6 +152,16 @@ mod tests {
         let args = vec!["program_name", path_str, "--threads", "4"];
         let cli = Cli::try_parse_from(args).unwrap();
         assert_eq!(cli.threads, 4);
+
+        let cli = Cli::try_parse_from(["program_name", path_str, "--append"]).unwrap();
+        assert!(cli.append);
+        assert!(!cli.force);
+
+        let cli = Cli::try_parse_from(["program_name", path_str, "--overwrite"]).unwrap();
+        assert!(cli.force);
+        assert!(!cli.append);
+
+        assert!(Cli::try_parse_from(["program_name", path_str, "--force", "--append"]).is_err());
 
         std::fs::remove_file(path).unwrap();
     }

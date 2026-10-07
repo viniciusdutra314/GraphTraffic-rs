@@ -12,7 +12,7 @@ use clap::Parser;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use std::time::{Duration, Instant};
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     sync::{
         Arc, OnceLock, RwLock,
         atomic::{AtomicUsize, Ordering},
@@ -58,6 +58,25 @@ fn run(cli_args: cli::Cli) -> Result<(), String> {
         .map_err(|e| format!("Failed to deserialize JSON into SimulationConfiguration: {e}"))?;
 
     let hdf5_file = init_hdf5_file(&cli_args)?;
+    let existing_results = if hdf5_file.link_exists("simulations_results") {
+        Some(hdf5_file.group("simulations_results").unwrap())
+    } else {
+        None
+    };
+    let mut batch_ids = HashSet::new();
+    for config in configs.iter() {
+        let id = config.uuid.to_string();
+        assert!(
+            batch_ids.insert(id.clone()),
+            "Duplicate simulation ID {id} in input"
+        );
+        assert!(
+            existing_results
+                .as_ref()
+                .is_none_or(|group| !group.link_exists(&id)),
+            "Simulation ID {id} already exists in output"
+        );
+    }
 
     let configs_grouped_by_graph = group_by_graph(&configs);
     println!(
@@ -94,11 +113,17 @@ fn run(cli_args: cli::Cli) -> Result<(), String> {
             let graph_uuid = std::path::Path::new(graph_file_name)
                 .file_stem()
                 .and_then(|s| s.to_str())
-                        .unwrap();
+                .unwrap();
 
-                    let graph_group = graphs_datagroup.create_group(graph_uuid).unwrap();
+            let graph_group = if graphs_datagroup.link_exists(graph_uuid) {
+                graphs_datagroup.group(graph_uuid).unwrap()
+            } else {
+                graphs_datagroup.create_group(graph_uuid).unwrap()
+            };
             num_caches_in_memory.fetch_add(1, Ordering::SeqCst);
-            graph_cache.save_edgelist_hdf5(&graph_group);
+            if !graph_group.link_exists("edgelist") {
+                graph_cache.save_edgelist_hdf5(&graph_group);
+            }
             graph_cache
         });
 
@@ -132,6 +157,24 @@ fn init_hdf5_file(cli_args: &cli::Cli) -> Result<hdf5_metno::file::File, String>
         .output_file_hdf5
         .clone()
         .unwrap_or(cli_args.json_path.with_extension("hdf5"));
+
+    if cli_args.append {
+        if !hdf5_file_name.is_file() {
+            return Err(format!(
+                "HDF5 file {:?} does not exist, cannot append",
+                hdf5_file_name
+            ));
+        }
+        let file = hdf5_metno::file::File::open_rw(&hdf5_file_name)
+            .map_err(|_| format!("Could not open HDF5 file {:?} for append", hdf5_file_name))?;
+        if !file.link_exists("graphs") {
+            return Err(format!(
+                "HDF5 file {:?} has no graphs group",
+                hdf5_file_name
+            ));
+        }
+        return Ok(file);
+    }
 
     if hdf5_file_name.exists() {
         if cli_args.force {
@@ -308,12 +351,39 @@ mod tests {
             output_file_hdf5: Some(hdf5_path.clone()),
             threads: 1,
             force: false,
+            append: false,
         };
 
         let result = init_hdf5_file(&cli_args);
         assert!(result.is_err());
 
         let _ = std::fs::remove_file(hdf5_path);
+    }
+
+    #[test]
+    fn init_hdf5_file_append_preserves_existing_groups() {
+        let hdf5_path = std::env::temp_dir().join(format!(
+            "graph_traffic_append_test_{}.hdf5",
+            uuid::Uuid::new_v4()
+        ));
+        let file = hdf5_metno::file::File::create(&hdf5_path).unwrap();
+        file.create_group("graphs").unwrap();
+        file.create_group("simulations_results").unwrap();
+        drop(file);
+
+        let cli_args = crate::cli::Cli {
+            json_path: PathBuf::from("dummy.json"),
+            output_file_hdf5: Some(hdf5_path.clone()),
+            threads: 1,
+            force: false,
+            append: true,
+        };
+        let file = init_hdf5_file(&cli_args).unwrap();
+        assert!(file.link_exists("graphs"));
+        assert!(file.link_exists("simulations_results"));
+        drop(file);
+
+        std::fs::remove_file(hdf5_path).unwrap();
     }
 
     #[test]

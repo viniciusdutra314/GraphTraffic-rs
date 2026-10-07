@@ -46,12 +46,15 @@ cargo build --release
 ## Run
 
 ```bash
-cargo run -- <path/to/config.json> [--output-file-hdf5 <path/to/output.hdf5>] [--threads <N>] [--force]
+cargo run -- <path/to/config.json> [--output-file-hdf5 <path/to/output.hdf5>] [--threads <N>] [--force | --append]
 ```
 
 - `--output-file-hdf5`: optional output file. Defaults to the JSON path with the `.hdf5` extension.
 - `--threads`: number of threads (default: ~50% of logical cores).
-- `--force`: overwrite the output file if it exists.
+- With neither flag, an existing output file causes an error.
+- `--force` (also `--overwrite`): replace an existing output file.
+- `--append`: add simulations to an existing HDF5 file. Simulation UUIDs must be new.
+  This flag cannot be combined with `--force`.
 
 ### Example (`examples/config.json`)
 

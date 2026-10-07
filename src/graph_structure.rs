@@ -86,6 +86,7 @@ fn get_sorted_edges_from_edgefile(path: &Path) -> (Vec<(usize, usize)>, Vec<(usi
     let mut sorted_edges = Vec::with_capacity(2 * e);
     let mut file_edges = Vec::with_capacity(e);
     let mut seen = HashSet::with_capacity(e);
+    let mut largest_endpoint = 0;
     for (index, line) in reader.lines().enumerate() {
         let number = index + 3;
         let line = line.unwrap_or_else(|err| panic!("Cannot read edgelist line {number}: {err}"));
@@ -105,6 +106,7 @@ fn get_sorted_edges_from_edgefile(path: &Path) -> (Vec<(usize, usize)>, Vec<(usi
             from < v && to < v,
             "Vertex out of range on edgelist line {number}"
         );
+        largest_endpoint = largest_endpoint.max(from).max(to);
         assert_ne!(from, to, "Self-loop on edgelist line {number}");
         let pair = (from.min(to), from.max(to));
         assert!(
@@ -120,6 +122,11 @@ fn get_sorted_edges_from_edgefile(path: &Path) -> (Vec<(usize, usize)>, Vec<(usi
         e,
         "Edgelist declares {e} edges but contains {}",
         file_edges.len()
+    );
+    assert_eq!(
+        largest_endpoint + 1,
+        v,
+        "Edgelist declares {v} vertices but its highest edge endpoint is {largest_endpoint}"
     );
     sorted_edges.sort_unstable();
     (sorted_edges, file_edges)
@@ -417,7 +424,7 @@ mod tests {
             ("3\n1\n0 1\n1 2\n", "declares 1 edges"),
             ("3\n1\n0 3\n", "out of range"),
             ("4\n2\n0 1\n2 3\n", "connected"),
-            ("4\n2\n0 1\n1 2\n", "connected"),
+            ("4\n2\n0 1\n1 2\n", "declares 4 vertices"),
         ] {
             let path = std::env::temp_dir().join(format!("invalid_{}.edgelist", Uuid::new_v4()));
             std::fs::write(&path, contents).unwrap();
