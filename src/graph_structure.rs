@@ -422,6 +422,95 @@ mod tests {
         }
     }
     #[test]
+    fn shortest_path_workspace_resets_counts_and_edges_between_sources() {
+        // Diamond: 0 connects to 1 and 2, and both connect to 3.
+        let graph: AdjacencyList = AdjacencyList::from_sorted_edges(&[
+            (0, 1),
+            (0, 2),
+            (1, 0),
+            (1, 3),
+            (2, 0),
+            (2, 3),
+            (3, 1),
+            (3, 2),
+        ])
+        .unwrap();
+        let mut workspace = ShortestPathWorkspace::new(4);
+        let distances_allocation = workspace.distances.as_ptr();
+        let sigmas_allocation = workspace.sigmas.as_ptr();
+
+        for (source, distances, counts, edges) in [
+            (
+                0,
+                [0, 1, 1, 2],
+                [1u32, 1, 1, 2],
+                [(1, 0), (2, 0), (3, 1), (3, 2)],
+            ),
+            (
+                3,
+                [2, 1, 1, 0],
+                [2u32, 1, 1, 1],
+                [(1, 3), (2, 3), (0, 1), (0, 2)],
+            ),
+            (
+                0,
+                [0, 1, 1, 2],
+                [1u32, 1, 1, 2],
+                [(1, 0), (2, 0), (3, 1), (3, 2)],
+            ),
+        ] {
+            compute_distances_and_sigmas(&graph, source, &mut workspace);
+
+            assert_eq!(
+                workspace.distances, distances,
+                "Distances must be recomputed from source {source}"
+            );
+            assert_eq!(
+                workspace.sigmas,
+                counts.map(BigUint::from),
+                "Counts must start fresh: the opposite corner has exactly two shortest paths"
+            );
+            assert_eq!(
+                workspace
+                    .dag_edges
+                    .iter()
+                    .map(|&(from, to, _)| (from, to))
+                    .collect::<Vec<_>>(),
+                edges,
+                "The DAG must contain only the current source's edges"
+            );
+            assert!(workspace.queue.is_empty());
+            assert_eq!(workspace.distances.as_ptr(), distances_allocation);
+            assert_eq!(workspace.sigmas.as_ptr(), sigmas_allocation);
+        }
+    }
+
+    #[test]
+    fn reused_workspace_preserves_path_counts_larger_than_u64() {
+        let grid: UnGraph = grid_graph(Some(40), Some(40), None, || (), || (), false).unwrap();
+        let graph = from_un_graph_to_adjlist(grid);
+        let mut workspace = ShortestPathWorkspace::new(graph.node_count());
+        // Opposite corners require 39 horizontal and 39 vertical moves: C(78, 39).
+        let mut expected = BigUint::one();
+        for i in 0usize..39 {
+            expected = (expected * (78 - i)) / (i + 1);
+        }
+        assert!(
+            expected.to_u64().is_none(),
+            "This case must exercise multiple BigUint digits"
+        );
+
+        for (source, destination) in [(0, 1599), (1599, 0), (0, 1599)] {
+            compute_distances_and_sigmas(&graph, source, &mut workspace);
+            assert_eq!(workspace.distances[destination], 78);
+            assert_eq!(
+                workspace.sigmas[destination], expected,
+                "Reusing digit storage must preserve the exact path count"
+            );
+        }
+    }
+
+    #[test]
     fn test_sigma_calculation_grid_graph() {
         let rows = 10;
         let cols = 10;
@@ -444,6 +533,41 @@ mod tests {
             }
         }
     }
+    #[test]
+    fn edge_ids_keep_file_order_in_both_directions() {
+        let path = std::env::temp_dir().join(format!("edge_ids_{}.edgelist", uuid::Uuid::new_v4()));
+        // File order differs from sorted neighbor order, especially at vertices 2 and 3.
+        std::fs::write(&path, "4\n4\n2 3\n0 1\n1 2\n0 3\n").unwrap();
+        let graph = PreComputedGraph::from_edgelist_file(&path);
+        std::fs::remove_file(path).unwrap();
+
+        for (from, to, expected_id) in [(2, 3, 0), (0, 1, 1), (1, 2, 2), (0, 3, 3)] {
+            assert_eq!(
+                graph.get_edge_id(from, to),
+                expected_id,
+                "IDs index capacities in file order"
+            );
+            assert_eq!(
+                graph.get_edge_id(to, from),
+                expected_id,
+                "Both directions must use the same undirected edge and FIFO queue"
+            );
+        }
+    }
+
+    #[test]
+    fn edge_ids_from_adjacency_list_keep_the_original_enumeration() {
+        let adjacency: AdjacencyList =
+            AdjacencyList::from_sorted_edges(&[(0, 1), (0, 2), (1, 0), (1, 2), (2, 0), (2, 1)])
+                .unwrap();
+        let graph = PreComputedGraph::from_adjlist(adjacency);
+
+        for (from, to, expected_id) in [(0, 1, 0), (0, 2, 1), (1, 2, 2)] {
+            assert_eq!(graph.get_edge_id(from, to), expected_id);
+            assert_eq!(graph.get_edge_id(to, from), expected_id);
+        }
+    }
+
     #[test]
     fn test_new_from_edgelist_with_temp_file() {
         let temp_path = std::env::temp_dir().join("test_graph_read.edgelist");
