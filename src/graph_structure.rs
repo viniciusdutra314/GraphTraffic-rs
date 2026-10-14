@@ -1,3 +1,4 @@
+use crate::frozen_map::FrozenMap;
 use num_bigint::BigUint;
 use num_rational::Ratio;
 use num_traits::ToPrimitive;
@@ -56,6 +57,7 @@ where
 pub struct PreComputedGraph {
     adjacency_list: AdjacencyList,
     edge_lookup: HashMap<(usize, usize), usize>,
+    neighbor_edges: Vec<FrozenMap<usize, usize>>,
     shortest_path_dags: Vec<ShortestPathDAG>,
 }
 
@@ -168,11 +170,27 @@ impl PreComputedGraph {
     ) -> Self {
         let shortest_path_dags: Vec<ShortestPathDAG> = (0..adjacency_list.node_count())
             .into_par_iter()
-            .map(|source| build_shortest_path_dag(&adjacency_list, source))
+            .map_init(
+                || ShortestPathWorkspace::new(adjacency_list.node_count()),
+                |workspace, source| build_shortest_path_dag(&adjacency_list, source, workspace),
+            )
+            .collect();
+        let neighbor_edges = (0..adjacency_list.node_count())
+            .map(|source| {
+                FrozenMap::from_sorted_entries(adjacency_list.neighbors_slice(source).iter().map(
+                    |&target| {
+                        (
+                            target,
+                            edge_lookup[&(source.min(target), source.max(target))],
+                        )
+                    },
+                ))
+            })
             .collect();
         Self {
             adjacency_list,
             edge_lookup,
+            neighbor_edges,
             shortest_path_dags,
         }
     }
@@ -217,12 +235,12 @@ impl PreComputedGraph {
     pub fn get_distance(&self, source: usize, target: usize) -> u16 {
         self.shortest_path_dags[target][source]
     }
+    /// This lookup favors the small neighbor sets of the sparse graphs used by the model.
     pub fn get_edge_id(&self, source: usize, target: usize) -> usize {
-        if source > target {
-            self.edge_lookup.get(&(target, source)).copied().unwrap()
-        } else {
-            self.edge_lookup.get(&(source, target)).copied().unwrap()
-        }
+        self.neighbor_edges[source]
+            .get(&target)
+            .copied()
+            .expect("Edge lookup requires an existing edge")
     }
 
     pub fn sample_closer_neighbor(
@@ -240,8 +258,18 @@ impl PreComputedGraph {
     }
 }
 
-fn build_shortest_path_dag<N, E>(graph: &AdjacencyList<N, E>, source: usize) -> ShortestPathDAG {
-    let (distances, sigmas, mut dag_edges) = distance_and_sigma_vec(&graph, source);
+fn build_shortest_path_dag<N, E>(
+    graph: &AdjacencyList<N, E>,
+    source: usize,
+    workspace: &mut ShortestPathWorkspace,
+) -> ShortestPathDAG {
+    compute_distances_and_sigmas(graph, source, workspace);
+    let ShortestPathWorkspace {
+        distances,
+        sigmas,
+        dag_edges,
+        ..
+    } = workspace;
     if distances.iter().any(|d| *d == u16::MAX) {
         panic!("BFS failed to reach all nodes, graph is not connected");
     }
@@ -263,16 +291,40 @@ fn build_shortest_path_dag<N, E>(graph: &AdjacencyList<N, E>, source: usize) -> 
     DAG::new(sp)
 }
 
-fn distance_and_sigma_vec<N, E>(
+struct ShortestPathWorkspace {
+    distances: Vec<u16>,
+    sigmas: Vec<BigUint>,
+    dag_edges: Vec<(usize, usize, f32)>,
+    queue: VecDeque<usize>,
+}
+
+impl ShortestPathWorkspace {
+    fn new(node_count: usize) -> Self {
+        Self {
+            distances: vec![u16::MAX; node_count],
+            sigmas: vec![BigUint::zero(); node_count],
+            dag_edges: Vec::new(),
+            queue: VecDeque::new(),
+        }
+    }
+}
+
+fn compute_distances_and_sigmas<N, E>(
     graph: &AdjacencyList<N, E>,
     source: usize,
-) -> (Vec<u16>, Vec<BigUint>, Vec<(usize, usize, f32)>) {
-    let num_nodes = graph.node_count();
-    let mut sigmas = vec![BigUint::zero(); num_nodes];
-    let mut distances = vec![u16::MAX; num_nodes];
-    let mut dag_edges: Vec<(usize, usize, f32)> = Vec::new();
-    let mut queue = VecDeque::new();
-    sigmas[source] = BigUint::one();
+    workspace: &mut ShortestPathWorkspace,
+) {
+    let ShortestPathWorkspace {
+        distances,
+        sigmas,
+        dag_edges,
+        queue,
+    } = workspace;
+    distances.fill(u16::MAX);
+    sigmas.iter_mut().for_each(Zero::set_zero);
+    dag_edges.clear();
+    queue.clear();
+    sigmas[source].set_one();
     distances[source] = 0;
     queue.push_back(source);
     // BFS: Calculate Distances, Path Counts (Sigma), and DAG Edges
@@ -284,7 +336,7 @@ fn distance_and_sigma_vec<N, E>(
         for nb in graph.neighbors(v) {
             if distances[nb] == u16::MAX {
                 distances[nb] = dist_v + 1;
-                sigmas[nb] = current_sigma.clone();
+                sigmas[nb].clone_from(&current_sigma);
                 queue.push_back(nb);
                 dag_edges.push((nb, v, 0.0));
             } else if distances[nb] == dist_v + 1 {
@@ -294,7 +346,6 @@ fn distance_and_sigma_vec<N, E>(
         }
         sigmas[v] = current_sigma;
     }
-    (distances, sigmas, dag_edges)
 }
 
 #[cfg(test)]
@@ -376,7 +427,9 @@ mod tests {
         let cols = 10;
         let g: UnGraph = grid_graph(Some(rows), Some(cols), None, || (), || (), false).unwrap();
         let graph = from_un_graph_to_adjlist(g);
-        let (_, sigmas, _) = distance_and_sigma_vec(&graph, 0);
+        let mut workspace = ShortestPathWorkspace::new(graph.node_count());
+        compute_distances_and_sigmas(&graph, 0, &mut workspace);
+        let sigmas = &workspace.sigmas;
         for r in 0..rows {
             for c in 0..cols {
                 let node_idx = r * cols + c;

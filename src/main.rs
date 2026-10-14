@@ -1,4 +1,5 @@
 mod cli;
+mod frozen_map;
 mod graph_dynamics;
 mod graph_structure;
 mod modifiers;

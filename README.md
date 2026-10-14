@@ -13,6 +13,7 @@ This project was derived from my [undergraduate thesis](https://github.com/vinic
 - JSON configuration validated against `schema.json`.
 - Built-in routing strategies and pluggable observers/modifiers.
 - HDF5 output with graph metadata and per-simulation results.
+- Static edge lookup through `FrozenMap`, an immutable map of sorted neighbor keys and aligned original edge IDs, optimized for sparse graphs with small neighbor sets.
 
 ## Requirements
 
