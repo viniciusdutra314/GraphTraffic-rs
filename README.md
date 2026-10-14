@@ -16,7 +16,7 @@ This project was derived from my [undergraduate thesis](https://github.com/vinic
 
 ## Requirements
 
-- Nix with flakes enabled (for the reproducible build), or Rust 1.88.0 and the native HDF5 build dependencies installed separately.
+- Nix with flakes enabled (for the reproducible build), or Rust 1.98.1 and the native HDF5 build dependencies installed separately.
 
 ## Reproducible build with Nix
 

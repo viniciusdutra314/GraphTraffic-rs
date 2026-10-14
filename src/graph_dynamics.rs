@@ -250,7 +250,7 @@ mod tests {
     fn test_edge_add_message() {
         let mut edge = Edge::new(10).unwrap();
         let msg = Message::new(0, 1, 0).unwrap();
-        edge.add_message(msg,true);
+        edge.add_message(msg, true);
 
         assert_eq!(edge.queue_size(), 1);
         assert_eq!(edge.total_num_messages_processed(), 1);
@@ -278,9 +278,9 @@ mod tests {
         let msg2 = Message::new(0, 1, 1).unwrap();
         let msg3 = Message::new(0, 1, 2).unwrap();
 
-        edge.add_message(msg1,true);
-        edge.add_message(msg2,true);
-        edge.add_message(msg3,true);
+        edge.add_message(msg1, true);
+        edge.add_message(msg2, true);
+        edge.add_message(msg3, true);
 
         assert_eq!(edge.queue_size(), 3);
 
@@ -330,7 +330,7 @@ mod tests {
         let mut vertex = Vertex::default();
         let mut msg = Message::new(0, 1, 10).unwrap();
         msg.state = MessageState::Arrived { time_arrived: 10 };
-        vertex.update_statistics(&msg, 10,true);
+        vertex.update_statistics(&msg, 10, true);
     }
 
     #[test]
@@ -339,7 +339,7 @@ mod tests {
         let mut vertex = Vertex::default();
         let mut msg = Message::new(0, 1, 10).unwrap();
         msg.state = MessageState::InEdge { edge: ((3, 5)) };
-        vertex.update_statistics(&msg, 15,true);
+        vertex.update_statistics(&msg, 15, true);
     }
 
     #[test]
@@ -350,7 +350,7 @@ mod tests {
         msg.state = MessageState::Arrived { time_arrived: 20 };
 
         let ideal_distance = 5;
-        vertex.update_statistics(&msg, ideal_distance,true);
+        vertex.update_statistics(&msg, ideal_distance, true);
 
         assert_eq!(vertex.num_arrived_msgs(), 1);
         assert_eq!(vertex.total_traveling_time(), 10); // 20 - 10
@@ -364,7 +364,7 @@ mod tests {
         msg2.state = MessageState::Arrived { time_arrived: 15 };
         let ideal_distance2 = 8;
 
-        vertex.update_statistics(&msg2, ideal_distance2,true);
+        vertex.update_statistics(&msg2, ideal_distance2, true);
 
         assert_eq!(vertex.num_arrived_msgs(), 2);
         assert_eq!(vertex.total_traveling_time(), 20);

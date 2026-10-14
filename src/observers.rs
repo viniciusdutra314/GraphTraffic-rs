@@ -1,7 +1,7 @@
 use crate::graph_dynamics::{Edge, Vertex};
 use crate::graph_structure::PreComputedGraph;
 use crate::schema::SimulationConfigurationItemObserversItem as ConfigObserverEnum;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::num::NonZero;
 
 pub trait Observer {
@@ -25,13 +25,13 @@ pub fn create_observer(config: &ConfigObserverEnum, graph: &PreComputedGraph) ->
 }
 
 pub struct ObserverEdgeQueue {
-    pub queue_histograms: Vec<HashMap<usize, usize>>,
+    pub queue_histograms: Vec<BTreeMap<usize, usize>>,
 }
 
 impl ObserverEdgeQueue {
     pub fn new(num_edges: usize) -> Self {
         return ObserverEdgeQueue {
-            queue_histograms: vec![HashMap::new(); num_edges],
+            queue_histograms: vec![BTreeMap::new(); num_edges],
         };
     }
 }
@@ -209,6 +209,25 @@ mod observer_behavior_tests {
         observer.measure(0, &edges, &vertices);
 
         assert_eq!(observer.queue_histograms.len(), 0);
+    }
+
+    #[test]
+    fn edge_queue_counts_samples_in_increasing_size_order() {
+        let mut observer = ObserverEdgeQueue::new(2);
+        for (iteration, queue_size) in [5, 0, 2, 5].into_iter().enumerate() {
+            let mut edges = [Edge::new(1).unwrap(), Edge::new(1).unwrap()];
+            for _ in 0..queue_size {
+                edges[0].add_message(crate::graph_dynamics::Message::new(0, 1, 0).unwrap(), false);
+            }
+            observer.measure(iteration as u64, &edges, &[]);
+        }
+        assert_eq!(
+            observer.queue_histograms[0]
+                .iter()
+                .map(|(&size, &count)| (size, count))
+                .collect::<Vec<_>>(),
+            [(0, 1), (2, 1), (5, 2)]
+        );
     }
 
     #[test]

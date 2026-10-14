@@ -56,7 +56,11 @@ impl RandomEngine {
 
     pub fn sample_destination(&mut self, vertex_to_exclude: usize) -> usize {
         let x = self.destination_distr.sample(&mut self.rng);
-        if x >= vertex_to_exclude { x + 1 } else { x }
+        if x >= vertex_to_exclude {
+            x + 1
+        } else {
+            x
+        }
     }
 }
 

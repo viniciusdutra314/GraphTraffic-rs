@@ -14,8 +14,8 @@ use std::time::{Duration, Instant};
 use std::{
     collections::{HashMap, HashSet},
     sync::{
-        Arc, OnceLock, RwLock,
         atomic::{AtomicUsize, Ordering},
+        Arc, OnceLock, RwLock,
     },
 };
 

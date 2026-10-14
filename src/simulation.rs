@@ -1,10 +1,25 @@
-use crate::SimulationConfigurationItem;
 use crate::graph_dynamics::{Edge, HDF5Edge, Message, MessageState, Vertex};
 use crate::graph_structure::PreComputedGraph;
-use crate::modifiers::{Modifier, create_modifiers};
-use crate::observers::{Observer, create_observer};
+use crate::modifiers::{create_modifiers, Modifier};
+use crate::observers::{create_observer, Observer};
 use crate::random_engine::RandomEngine;
+use crate::SimulationConfigurationItem;
 use std::sync::Arc;
+
+struct ForwardingWorkspace {
+    shuffled_edge_indices: Box<[usize]>,
+    staged_messages: Vec<(usize, Message)>,
+}
+
+impl ForwardingWorkspace {
+    fn new(edge_count: usize) -> Self {
+        Self {
+            shuffled_edge_indices: (0..edge_count).collect(),
+            staged_messages: Vec::new(),
+        }
+    }
+}
+
 pub struct Simulation {
     current_time_step: u64,
     graph_with_cache: Arc<PreComputedGraph>,
@@ -14,7 +29,7 @@ pub struct Simulation {
     vertices: Vec<Vertex>,
     observers: Vec<Box<dyn Observer>>,
     modifiers: Vec<Box<dyn Modifier>>,
-    shuffled_edge_indices: Vec<usize>,
+    forwarding_workspace: ForwardingWorkspace,
 }
 
 impl Simulation {
@@ -41,7 +56,7 @@ impl Simulation {
             vertices: vec![Vertex::default(); v],
             observers: observers,
             modifiers: modifiers,
-            shuffled_edge_indices: (0..e).collect(),
+            forwarding_workspace: ForwardingWorkspace::new(e),
         }
     }
     fn run(&mut self) {
@@ -109,9 +124,17 @@ impl Simulation {
     }
     fn forward_messages_on_edges(&mut self, ready_to_observe: bool) {
         self.random_engine
-            .shuffle_slice(&mut self.shuffled_edge_indices);
-        let mut transit_queue: Vec<(usize, Message)> = Vec::new();
-        for edge_id in self.shuffled_edge_indices.iter() {
+            .shuffle_slice(&mut self.forwarding_workspace.shuffled_edge_indices);
+        self.stage_forwarded_messages(ready_to_observe);
+        self.commit_staged_messages(ready_to_observe);
+    }
+
+    fn stage_forwarded_messages(&mut self, ready_to_observe: bool) {
+        debug_assert!(
+            self.forwarding_workspace.staged_messages.is_empty(),
+            "Commit the previous forwarding batch before staging another one"
+        );
+        for edge_id in self.forwarding_workspace.shuffled_edge_indices.iter() {
             let edge = &mut self.edges[*edge_id];
             for mut msg in edge.messages_to_deliver_mut() {
                 msg.step(
@@ -126,7 +149,9 @@ impl Simulation {
                             self.vertices[from].increment_num_traveling_msgs();
                         }
                         let edge_id = self.graph_with_cache.get_edge_id(from, to);
-                        transit_queue.push((edge_id, msg));
+                        self.forwarding_workspace
+                            .staged_messages
+                            .push((edge_id, msg));
                     }
                     MessageState::Arrived { .. } => {
                         let ideal_distance = self
@@ -146,7 +171,9 @@ impl Simulation {
                 };
             }
         }
-        for (edge_id, msg) in transit_queue.into_iter() {
+    }
+    fn commit_staged_messages(&mut self, ready_to_observe: bool) {
+        for (edge_id, msg) in self.forwarding_workspace.staged_messages.drain(..) {
             self.edges[edge_id].add_message(msg, ready_to_observe);
         }
     }
@@ -250,8 +277,11 @@ mod tests {
         assert_eq!(simulation.vertices.len(), graph_cache.node_count());
         assert_eq!(simulation.edges.len(), graph_cache.edge_count());
         assert_eq!(
-            simulation.shuffled_edge_indices,
-            (0..graph_cache.edge_count()).collect::<Vec<_>>()
+            simulation
+                .forwarding_workspace
+                .shuffled_edge_indices
+                .as_ref(),
+            (0..graph_cache.edge_count()).collect::<Vec<_>>().as_slice()
         );
         assert!(simulation.observers.is_empty());
         assert!(simulation.modifiers.is_empty());

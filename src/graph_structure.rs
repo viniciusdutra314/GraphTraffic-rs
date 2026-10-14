@@ -1,12 +1,12 @@
 use num_bigint::BigUint;
 use num_rational::Ratio;
 use num_traits::ToPrimitive;
-use petgraph::Graph;
 use petgraph::visit::{EdgeRef, IntoEdgeReferences, IntoNodeReferences};
-use petgraph::{self, Directed, Undirected, csr::Csr};
+use petgraph::Graph;
+use petgraph::{self, csr::Csr, Directed, Undirected};
 use rand::Rng;
-use rand_distr::Distribution;
 use rand_distr::num_traits::{One, Zero};
+use rand_distr::Distribution;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::fs::File;
