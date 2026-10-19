@@ -2,12 +2,12 @@ use crate::frozen_map::FrozenMap;
 use num_bigint::BigUint;
 use num_rational::Ratio;
 use num_traits::ToPrimitive;
-use petgraph::visit::{EdgeRef, IntoEdgeReferences, IntoNodeReferences};
 use petgraph::Graph;
-use petgraph::{self, csr::Csr, Directed, Undirected};
-use rand::Rng;
-use rand_distr::num_traits::{One, Zero};
+use petgraph::visit::{EdgeRef, IntoEdgeReferences};
+use petgraph::{self, Directed, Undirected, csr::Csr};
+use rand::{Rng, distr::weighted::WeightedIndex};
 use rand_distr::Distribution;
+use rand_distr::num_traits::{One, Zero};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::fs::File;
@@ -18,7 +18,26 @@ use petgraph::visit::{EdgeCount, IntoNeighbors, NodeCount, NodeIndexable};
 use std::path::Path;
 
 type AdjacencyList<N = (), E = ()> = Csr<N, E, Undirected, usize>;
-type ShortestPathDAG = DAG<Csr<u16, f32, Directed, usize>>;
+type ShortestPathDAG = DAG<Csr<ShortestPathRouting, (), Directed, usize>>;
+
+#[derive(Debug, Default)]
+enum ShortestPathRouting {
+    #[default]
+    Destination,
+    Forward {
+        distance: u16,
+        distribution: WeightedIndex<f32>,
+    },
+}
+
+impl ShortestPathRouting {
+    const fn distance(&self) -> u16 {
+        match self {
+            Self::Destination => 0,
+            Self::Forward { distance, .. } => *distance,
+        }
+    }
+}
 
 struct DAG<G> {
     inner: G,
@@ -233,7 +252,7 @@ impl PreComputedGraph {
     }
 
     pub fn get_distance(&self, source: usize, target: usize) -> u16 {
-        self.shortest_path_dags[target][source]
+        self.shortest_path_dags[target][source].distance()
     }
     /// This lookup favors the small neighbor sets of the sparse graphs used by the model.
     pub fn get_edge_id(&self, source: usize, target: usize) -> usize {
@@ -249,12 +268,11 @@ impl PreComputedGraph {
         destination: usize,
         rng: &mut impl Rng,
     ) -> usize {
-        use rand::distr::weighted::WeightedIndex;
         let spt = &self.shortest_path_dags[destination];
-        let neighbors = spt.neighbors_slice(source);
-        let weights = spt.edges_slice(source);
-        let dist = WeightedIndex::new(weights).expect("Failed to create weighted index");
-        neighbors[dist.sample(rng)]
+        let ShortestPathRouting::Forward { distribution, .. } = &spt[source] else {
+            panic!("Cannot sample a next hop at the destination");
+        };
+        spt.neighbors_slice(source)[distribution.sample(rng)]
     }
 }
 
@@ -280,11 +298,20 @@ fn build_shortest_path_dag<N, E>(
     // sorts based on (usize,usize) and simply ignore f32
     dag_edges.sort_unstable_by(|a, b| a.0.cmp(&b.0).then_with(|| a.1.cmp(&b.1)));
     let sp = {
-        let mut sp = Csr::<u16, f32, Directed, usize>::from_sorted_edges(&dag_edges).unwrap();
-        // Assign vertex distances
-        let indices: Vec<usize> = sp.node_references().map(|(id, _)| id).collect();
-        for index in indices {
-            sp[index] = distances[index];
+        // The CSR retains topology only. Raw probabilities live in the reusable
+        // workspace, not in the prepared graph alongside the cumulative weights.
+        let topology: Vec<_> = dag_edges.iter().map(|&(from, to, _)| (from, to)).collect();
+        let mut sp =
+            Csr::<ShortestPathRouting, (), Directed, usize>::from_sorted_edges(&topology).unwrap();
+        // Sorted edges group each origin's weights in the same order as CSR neighbors.
+        // The destination has no outgoing edges, so its default routing stays Destination.
+        for edges in dag_edges.chunk_by(|edge_a, edge_b| edge_a.0 == edge_b.0) {
+            let vertex = edges[0].0;
+            sp[vertex] = ShortestPathRouting::Forward {
+                distance: distances[vertex],
+                distribution: WeightedIndex::new(edges.iter().map(|edge| edge.2))
+                    .expect("Failed to create weighted index"),
+            };
         }
         sp
     };
@@ -674,15 +701,24 @@ mod tests {
         println!("{}", Dot::with_config(&(csr_graph), &dot_config));
         println!("dag dot");
         println!(
-            "{}",
+            "{:?}",
             Dot::with_attr_getters(
                 &(*graph.shortest_path_dags[0]),
                 &dot_config,
                 &|_, edge_ref| {
-                    let w = *edge_ref.weight();
+                    let dag = &graph.shortest_path_dags[0];
+                    let ShortestPathRouting::Forward { distribution, .. } = &dag[edge_ref.source()]
+                    else {
+                        unreachable!("The destination has no outgoing edges");
+                    };
+                    let index = dag
+                        .neighbors_slice(edge_ref.source())
+                        .binary_search(&edge_ref.target())
+                        .unwrap();
+                    let w = distribution.weight(index).unwrap();
                     format!(r#"label = "{:.2}", color = {}"#, w, get_edge_color(w))
                 },
-                &|_, (_, d)| format!(r#"label = {}"#, d),
+                &|_, (_, routing)| format!(r#"label = {}"#, routing.distance()),
             )
         );
     }
