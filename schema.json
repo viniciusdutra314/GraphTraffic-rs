@@ -58,8 +58,8 @@
                 "type": "integer",
                 "minimum": 0
             },
-            "graph_generation_info": {
-                "description": "Python-specific generation metadata. Rust treats this as a generic value.",
+            "metadata": {
+                "description": "Opaque simulation metadata, preserved in the output without affecting simulation behavior.",
                 "type": "object",
                 "additionalProperties": true
             },

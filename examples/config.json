@@ -8,7 +8,7 @@
         "warm_up_iterations": 10,
         "random_seed": 42,
         "routing_method": "minimal_paths",
-        "graph_generation_info": {
+        "metadata": {
             "description": "5-node cycle"
         },
         "modifiers": [

@@ -284,7 +284,7 @@ mod tests {
             initial_capacity: "capacity.txt".to_string(),
             max_iterations: NonZero::new(10).unwrap(),
             uuid: uuid::Uuid::new_v4(),
-            graph_generation_info: Map::new(),
+            metadata: Map::new(),
             random_seed: Some(123),
             message_generation: 0.1,
             routing_method: RoutingMethod::RandomWalk,

@@ -344,7 +344,14 @@ mod tests {
         );
         let graph_cache = Arc::new(PreComputedGraph::from_edgelist_file(&graph_path));
         let capacity_path = write_temp_edgelist("run_save_capacities", "1\n1\n");
-        let config = build_config(graph_path.to_str().unwrap(), &capacity_path, 3, Some(0));
+        let mut config = build_config(graph_path.to_str().unwrap(), &capacity_path, 3, Some(0));
+        let annotations = json!({
+            "experiment": "capacity-sweep",
+            "replicate": 3,
+            "graph": {"generator": "path"},
+            "values": [null, true, 0.5, "réplica"]
+        });
+        config.metadata = annotations.as_object().unwrap().clone();
         let simulation_uuid = config.uuid.to_string();
 
         let hdf5_path =
@@ -357,6 +364,15 @@ mod tests {
         let results_group = hdf5_file.group("simulations_results").unwrap();
         let simulation_group = results_group.group(&simulation_uuid).unwrap();
 
+        let saved_config: serde_json::Value = serde_json::from_slice(
+            &simulation_group
+                .dataset("json_string")
+                .unwrap()
+                .read_raw::<u8>()
+                .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(saved_config["metadata"], annotations);
         let vertices_ds = simulation_group.dataset("vertices_attributes").unwrap();
         let edges_ds = simulation_group.dataset("edges_attributes").unwrap();
 

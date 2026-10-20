@@ -95,6 +95,50 @@ mod tests {
     }
 
     #[test]
+    fn metadata_round_trips_arbitrary_json_values() {
+        let annotations = json!({
+            "experiment": "capacidade — réplica",
+            "replicate": 3,
+            "enabled": true,
+            "optional": null,
+            "samples": [0.25, "label", false, null, {"nested": [1, 2]}],
+            "graph": {"generator": "cycle", "vertices": 3},
+            // An annotation with a parameter's name must remain opaque.
+            "random_seed": "an annotation, not a seed"
+        });
+        let mut item = valid_config_item();
+        item["metadata"] = annotations.clone();
+        assert!(JSON_SIMULATION_VALIDATOR.is_valid(&json!([item.clone()])));
+        let config: SimulationConfigurationItem = serde_json::from_value(item).unwrap();
+        let serialized = serde_json::to_value(&config).unwrap();
+        assert_eq!(serialized["metadata"], annotations);
+        assert_eq!(config.random_seed, Some(42));
+    }
+
+    #[test]
+    fn metadata_is_optional_and_defaults_to_an_empty_object() {
+        for annotations in [None, Some(json!({}))] {
+            let mut item = valid_config_item();
+            if let Some(value) = annotations {
+                item["metadata"] = value;
+            }
+            assert!(JSON_SIMULATION_VALIDATOR.is_valid(&json!([item.clone()])));
+            let config: SimulationConfigurationItem = serde_json::from_value(item).unwrap();
+            assert!(config.metadata.is_empty());
+        }
+    }
+
+    #[test]
+    fn metadata_rejects_non_objects_and_the_removed_field() {
+        for invalid in [json!(null), json!([]), json!("text"), json!(3), json!(true)] {
+            let mut item = valid_config_item();
+            item["metadata"] = invalid;
+            assert!(!JSON_SIMULATION_VALIDATOR.is_valid(&json!([item.clone()])));
+            assert!(serde_json::from_value::<SimulationConfigurationItem>(item).is_err());
+        }
+    }
+
+    #[test]
     fn test_multiple_valid_items() {
         let item1 = valid_config_item();
         let mut item2 = valid_config_item();

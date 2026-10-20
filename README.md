@@ -104,7 +104,7 @@ The config file is a JSON **array** of simulation items. The schema is defined i
     "warm_up_iterations": 100,
     "random_seed": 42,
     "routing_method": "minimal_paths",
-    "graph_generation_info": { "generator": "barabasi", "n":1000, "m":3 },
+    "metadata": { "experiment": "capacity-sweep", "graph": { "generator": "barabasi", "n":1000, "m":3 } },
     "modifiers": [
       {
         "type": "ModifierEdgeCapacity",
@@ -133,7 +133,7 @@ The config file is a JSON **array** of simulation items. The schema is defined i
   - `"minimal_paths"`
   - `"random_walk"`
   - `{ "limited_visibility": <non-negative integer> }`
-- `graph_generation_info` (object, optional): Opaque metadata passed through into the output.
+- `metadata` (object, optional): Free-form simulation annotations with string keys and arbitrary JSON values, including nested objects, arrays and null. The engine preserves this object in the output's `json_string` without using it to control the simulation.
 - `modifiers` (array, optional):
   - `ModifierEdgeCapacity` with fields `free_flow_rate` (0,1] and `free_flow_sampling_time` (>= 0).
 - `observers` (array, optional):
