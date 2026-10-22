@@ -63,11 +63,8 @@
                 "type": "object",
                 "additionalProperties": true
             },
-            "modifiers": {
-                "type": "array",
-                "items": {
+            "modifier": {
                     "oneOf": [{ "$ref": "#/$defs/ModifierEdgeCapacity" }]
-                }
             },
             "observers": {
                 "type": "array",
@@ -124,7 +121,8 @@
             "required": [
                 "type",
                 "free_flow_rate",
-                "free_flow_sampling_time"
+                "free_flow_sampling_time",
+                "momentum"
             ],
             "properties": {
                 "type": { "const": "ModifierEdgeCapacity" },
@@ -132,6 +130,11 @@
                     "type": "number",
                     "exclusiveMinimum": 0.0,
                     "maximum": 1.0
+                },
+                "momentum":{
+                    "type":"number",
+                    "minimum": 0.0,
+                    "exclusiveMaximum": 1.0
                 },
                 "free_flow_sampling_time": {
                     "type": "integer",

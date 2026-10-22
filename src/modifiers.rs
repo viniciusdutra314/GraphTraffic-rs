@@ -1,16 +1,8 @@
 use std::cmp;
+use std::hint::cold_path;
 
 use crate::graph_dynamics::{Edge, Vertex};
-use crate::graph_structure::PreComputedGraph;
-use crate::observers::{Observer, ObserverEdgeQueue};
 use crate::schema::ModifierEdgeCapacity as ConfigModifierEdgeCapacity;
-
-pub fn create_modifiers(
-    config: &ConfigModifierEdgeCapacity,
-    graph: &PreComputedGraph,
-) -> Box<dyn Modifier> {
-    return Box::new(ModifierEdgeCapacity::new(config.clone(), graph));
-}
 
 pub trait Modifier {
     fn should_stop_simulation(&self) -> bool;
@@ -24,17 +16,21 @@ pub trait Modifier {
 }
 
 pub struct ModifierEdgeCapacity {
-    inner_sensor: ObserverEdgeQueue,
     free_flow_rate: f64,
     free_flow_sampling_time: u64,
+    momentum:f64,
+    past_histograms:Vec<Vec<f64>>,
+    current_histograms:Vec<Vec<f64>>,
 }
 
 impl ModifierEdgeCapacity {
-    pub fn new(config: ConfigModifierEdgeCapacity, graph: &PreComputedGraph) -> Self {
+    pub fn new(config: ConfigModifierEdgeCapacity) -> Self {
         return ModifierEdgeCapacity {
-            inner_sensor: ObserverEdgeQueue::new(graph.edge_count()),
             free_flow_rate: config.free_flow_rate,
             free_flow_sampling_time: config.free_flow_sampling_time,
+            momentum:config.momentum,
+            past_histograms:vec![],
+            current_histograms:vec![]
         };
     }
 }
@@ -44,9 +40,16 @@ impl Modifier for ModifierEdgeCapacity {
         &mut self,
         iteration: u64,
         edges: &[Edge],
-        vertices: &[Vertex],
+        _vertices: &[Vertex],
     ) -> bool {
-        self.inner_sensor.measure(iteration, edges, vertices);
+        for (edge_id, edge_object) in edges.iter().enumerate() {
+            let current_histogram=&mut self.current_histograms[edge_id];
+            let num_messages = edge_object.queue_size();
+            if num_messages >= current_histogram.len(){
+                current_histogram.resize(num_messages+1, 0.0);
+            } 
+            current_histogram[num_messages]+=1.0 / (self.free_flow_sampling_time as f64);
+        }
         return iteration > 0 && iteration % self.free_flow_sampling_time == 0;
     }
 
@@ -55,22 +58,27 @@ impl Modifier for ModifierEdgeCapacity {
     }
 
     fn act(&mut self, edges: &mut [Edge], _vertices: &mut [Vertex]) {
-        for (index, edge) in edges.iter_mut().enumerate() {
-            let histogram = &mut self.inner_sensor.queue_histograms[index];
-            let mut cumulative_probability = 0.0;
-            for (&queue_size, &occurrences) in histogram.iter() {
-                cumulative_probability +=
-                    (occurrences as f64) / (self.free_flow_sampling_time as f64);
-
-                if cumulative_probability >= self.free_flow_rate {
-                    let new_capacity = cmp::max(1, queue_size);
-                    let old_capacity = edge.capacity();
-                    let geom_mean = f64::sqrt((new_capacity * old_capacity) as f64).ceil() as usize;
-                    edge.set_capacity(geom_mean);
-                    break;
+        for (edge_id, edge) in edges.iter_mut().enumerate() {
+            let current_hist=&self.current_histograms[edge_id];
+            let  past_hist=&mut self.past_histograms[edge_id];
+            if past_hist.is_empty(){
+                cold_path();
+                *past_hist=current_hist.clone();
+            }
+            past_hist.resize(std::cmp::max(past_hist.len(),current_hist.len()), 0.0);
+            let mut estimated_capacity=0;
+            let mut cumulative_prob=0.0;
+            for i in 0..past_hist.len(){
+                past_hist[i]=(1.0-self.momentum)*(current_hist.get(i).unwrap_or(&0.0))+past_hist[i]*self.momentum;
+                cumulative_prob+=past_hist[i];
+                if cumulative_prob<=self.free_flow_rate{
+                    estimated_capacity+=1;
                 }
             }
-            histogram.clear();
+            let new_capacity = cmp::max(1, estimated_capacity);
+            let old_capacity = edge.capacity();
+            let geom_mean = f64::sqrt((new_capacity * old_capacity) as f64).ceil() as usize;
+            edge.set_capacity(geom_mean);
         }
     }
 }

@@ -1,9 +1,9 @@
+use crate::SimulationConfigurationItem;
 use crate::graph_dynamics::{Edge, HDF5Edge, Message, MessageState, Vertex};
 use crate::graph_structure::PreComputedGraph;
-use crate::modifiers::{create_modifiers, Modifier};
-use crate::observers::{create_observer, Observer};
+use crate::modifiers::{Modifier, ModifierEdgeCapacity};
+use crate::observers::{Observer, create_observer};
 use crate::random_engine::RandomEngine;
-use crate::SimulationConfigurationItem;
 use std::sync::Arc;
 
 struct ForwardingWorkspace {
@@ -28,7 +28,7 @@ pub struct Simulation {
     edges: Vec<Edge>,
     vertices: Vec<Vertex>,
     observers: Vec<Box<dyn Observer>>,
-    modifiers: Vec<Box<dyn Modifier>>,
+    modifier: Option<Box<dyn Modifier>>,
     forwarding_workspace: ForwardingWorkspace,
 }
 
@@ -42,11 +42,9 @@ impl Simulation {
             .iter()
             .map(|config| create_observer(config, &graph_cache))
             .collect();
-        let modifiers = config
-            .modifiers
-            .iter()
-            .map(|config| create_modifiers(config, &graph_cache))
-            .collect();
+        let modifier = config
+            .modifier.clone()
+            .map(|m| Box::new(ModifierEdgeCapacity::new(m)) as Box<dyn Modifier>);
         Simulation {
             current_time_step: 0,
             graph_with_cache: graph_cache,
@@ -55,7 +53,7 @@ impl Simulation {
             edges: config.create_initial_edges(e),
             vertices: vec![Vertex::default(); v],
             observers: observers,
-            modifiers: modifiers,
+            modifier: modifier,
             forwarding_workspace: ForwardingWorkspace::new(e),
         }
     }
@@ -70,19 +68,14 @@ impl Simulation {
                     .iter_mut()
                     .for_each(|o| o.measure(self.current_time_step, &self.edges, &self.vertices));
             }
-            for modifiers in self.modifiers.iter_mut() {
-                if modifiers.should_stop_simulation() {
+            if let Some(modifier) = self.modifier.as_mut() {
+                if modifier.should_stop_simulation(){
                     return ();
                 }
-                if modifiers.measure_and_check_if_ready_to_act(
-                    self.current_time_step,
-                    &self.edges,
-                    &self.vertices,
-                ) {
-                    modifiers.act(&mut self.edges, &mut self.vertices);
+                if modifier.measure_and_check_if_ready_to_act(self.current_time_step, &self.edges, &self.vertices){
+                    modifier.act(&mut self.edges,&mut self.vertices);
                 }
-            }
-
+            } 
             self.forward_messages_on_edges(ready_to_observe);
         }
     }
@@ -284,7 +277,7 @@ mod tests {
             (0..graph_cache.edge_count()).collect::<Vec<_>>().as_slice()
         );
         assert!(simulation.observers.is_empty());
-        assert!(simulation.modifiers.is_empty());
+        assert!(simulation.modifier.is_empty());
         assert!(simulation.edges.iter().all(|edge| edge.capacity() == 1));
         std::fs::remove_file(capacity_path).unwrap();
     }
@@ -414,7 +407,7 @@ mod tests {
         let hdf5_file = hdf5_metno::file::File::create(&hdf5_path).unwrap();
 
         let simulation = Simulation::new(graph_cache.clone(), &config);
-        assert_eq!(simulation.modifiers.len(), 1);
+        assert_eq!(simulation.modifier.len(), 1);
         simulation.run_and_save(&hdf5_file);
 
         let results_group = hdf5_file.group("simulations_results").unwrap();
