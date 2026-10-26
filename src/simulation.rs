@@ -355,31 +355,34 @@ mod tests {
 
         let hdf5_path =
             std::env::temp_dir().join(format!("simulation_test_{}.hdf5", Uuid::new_v4()));
-        let hdf5_file = hdf5_metno::file::File::create(&hdf5_path).unwrap();
+        // Release all HDF5 handles before deleting the file (required on Windows).
+        {
+            let hdf5_file = hdf5_metno::file::File::create(&hdf5_path).unwrap();
 
-        let simulation = Simulation::new(graph_cache.clone(), &config);
-        simulation.run_and_save(&hdf5_file);
+            let simulation = Simulation::new(graph_cache.clone(), &config);
+            simulation.run_and_save(&hdf5_file);
 
-        let results_group = hdf5_file.group("simulations_results").unwrap();
-        let simulation_group = results_group.group(&simulation_uuid).unwrap();
+            let results_group = hdf5_file.group("simulations_results").unwrap();
+            let simulation_group = results_group.group(&simulation_uuid).unwrap();
 
-        let saved_config: serde_json::Value = serde_json::from_slice(
-            &simulation_group
-                .dataset("json_string")
-                .unwrap()
-                .read_raw::<u8>()
-                .unwrap(),
-        )
-        .unwrap();
-        assert_eq!(saved_config["metadata"], annotations);
-        let vertices_ds = simulation_group.dataset("vertices_attributes").unwrap();
-        let edges_ds = simulation_group.dataset("edges_attributes").unwrap();
+            let saved_config: serde_json::Value = serde_json::from_slice(
+                &simulation_group
+                    .dataset("json_string")
+                    .unwrap()
+                    .read_raw::<u8>()
+                    .unwrap(),
+            )
+            .unwrap();
+            assert_eq!(saved_config["metadata"], annotations);
+            let vertices_ds = simulation_group.dataset("vertices_attributes").unwrap();
+            let edges_ds = simulation_group.dataset("edges_attributes").unwrap();
 
-        let vertices_shape = vertices_ds.shape();
-        let edges_shape = edges_ds.shape();
+            let vertices_shape = vertices_ds.shape();
+            let edges_shape = edges_ds.shape();
 
-        assert_eq!(vertices_shape[0], graph_cache.node_count());
-        assert_eq!(edges_shape[0], graph_cache.edge_count());
+            assert_eq!(vertices_shape[0], graph_cache.node_count());
+            assert_eq!(edges_shape[0], graph_cache.edge_count());
+        }
 
         std::fs::remove_file(graph_path).unwrap();
         std::fs::remove_file(capacity_path).unwrap();
@@ -411,18 +414,21 @@ mod tests {
 
         let hdf5_path =
             std::env::temp_dir().join(format!("simulation_modifier_test_{}.hdf5", Uuid::new_v4()));
-        let hdf5_file = hdf5_metno::file::File::create(&hdf5_path).unwrap();
+        // Release all HDF5 handles before deleting the file (required on Windows).
+        {
+            let hdf5_file = hdf5_metno::file::File::create(&hdf5_path).unwrap();
 
-        let simulation = Simulation::new(graph_cache.clone(), &config);
-        assert!(simulation.modifier.is_some());
-        simulation.run_and_save(&hdf5_file);
+            let simulation = Simulation::new(graph_cache.clone(), &config);
+            assert!(simulation.modifier.is_some());
+            simulation.run_and_save(&hdf5_file);
 
-        let results_group = hdf5_file.group("simulations_results").unwrap();
-        let simulation_group = results_group.group(&simulation_uuid).unwrap();
-        let edges_ds = simulation_group.dataset("edges_attributes").unwrap();
-        let edges_data: Vec<HDF5Edge> = edges_ds.read_raw().unwrap();
+            let results_group = hdf5_file.group("simulations_results").unwrap();
+            let simulation_group = results_group.group(&simulation_uuid).unwrap();
+            let edges_ds = simulation_group.dataset("edges_attributes").unwrap();
+            let edges_data: Vec<HDF5Edge> = edges_ds.read_raw().unwrap();
 
-        assert_eq!(edges_data.len(), graph_cache.edge_count());
+            assert_eq!(edges_data.len(), graph_cache.edge_count());
+        }
 
         std::fs::remove_file(graph_path).unwrap();
         std::fs::remove_file(capacity_path).unwrap();
