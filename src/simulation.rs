@@ -42,9 +42,9 @@ impl Simulation {
             .iter()
             .map(|config| create_observer(config, &graph_cache))
             .collect();
-        let modifier = config
-            .modifier.clone()
-            .map(|m| Box::new(ModifierEdgeCapacity::new(m)) as Box<dyn Modifier>);
+        let modifier = config.modifier.clone().map(|modifier_cfg| {
+            Box::new(ModifierEdgeCapacity::new(modifier_cfg, e)) as Box<dyn Modifier>
+        });
         Simulation {
             current_time_step: 0,
             graph_with_cache: graph_cache,
@@ -69,13 +69,17 @@ impl Simulation {
                     .for_each(|o| o.measure(self.current_time_step, &self.edges, &self.vertices));
             }
             if let Some(modifier) = self.modifier.as_mut() {
-                if modifier.should_stop_simulation(){
+                if modifier.should_stop_simulation() {
                     return ();
                 }
-                if modifier.measure_and_check_if_ready_to_act(self.current_time_step, &self.edges, &self.vertices){
-                    modifier.act(&mut self.edges,&mut self.vertices);
+                if modifier.measure_and_check_if_ready_to_act(
+                    self.current_time_step,
+                    &self.edges,
+                    &self.vertices,
+                ) {
+                    modifier.act(&mut self.edges, &mut self.vertices);
                 }
-            } 
+            }
             self.forward_messages_on_edges(ready_to_observe);
         }
     }
@@ -223,23 +227,23 @@ mod tests {
         max_iterations: u64,
         warm_up_iterations: Option<u64>,
     ) -> SimulationConfigurationItem {
-        build_config_with_modifiers(
+        build_config_with_modifier(
             graph_file_name,
             capacity_path,
             max_iterations,
             warm_up_iterations,
-            json!([]),
+            None,
         )
     }
 
-    fn build_config_with_modifiers(
+    fn build_config_with_modifier(
         graph_file_name: &str,
         capacity_path: &std::path::Path,
         max_iterations: u64,
         warm_up_iterations: Option<u64>,
-        modifiers: serde_json::Value,
+        modifier: Option<serde_json::Value>,
     ) -> SimulationConfigurationItem {
-        let cfg = json!({
+        let mut cfg = json!({
             "uuid": Uuid::new_v4().to_string(),
             "graph_file_name": graph_file_name,
             "initial_capacity": capacity_path.to_str().unwrap(),
@@ -248,9 +252,11 @@ mod tests {
             "warm_up_iterations": warm_up_iterations,
             "random_seed": 42,
             "routing_method": "minimal_paths",
-            "observers": [],
-            "modifiers": modifiers
+            "observers": []
         });
+        if let Some(modifier) = modifier {
+            cfg["modifier"] = modifier;
+        }
         serde_json::from_value(cfg).unwrap()
     }
 
@@ -277,7 +283,7 @@ mod tests {
             (0..graph_cache.edge_count()).collect::<Vec<_>>().as_slice()
         );
         assert!(simulation.observers.is_empty());
-        assert!(simulation.modifier.is_empty());
+        assert!(simulation.modifier.is_none());
         assert!(simulation.edges.iter().all(|edge| edge.capacity() == 1));
         std::fs::remove_file(capacity_path).unwrap();
     }
@@ -389,16 +395,17 @@ mod tests {
         );
         let graph_cache = Arc::new(PreComputedGraph::from_edgelist_file(&graph_path));
         let capacity_path = write_temp_edgelist("modifier_capacities", "1\n1\n");
-        let config = build_config_with_modifiers(
+        let config = build_config_with_modifier(
             graph_path.to_str().unwrap(),
             &capacity_path,
             4,
             Some(0),
-            json!([{
+            Some(json!({
                 "type": "ModifierEdgeCapacity",
                 "free_flow_rate": 0.5,
-                "free_flow_sampling_time": 1
-            }]),
+                "free_flow_sampling_time": 1,
+                "momentum": 0.5
+            })),
         );
         let simulation_uuid = config.uuid.to_string();
 
@@ -407,7 +414,7 @@ mod tests {
         let hdf5_file = hdf5_metno::file::File::create(&hdf5_path).unwrap();
 
         let simulation = Simulation::new(graph_cache.clone(), &config);
-        assert_eq!(simulation.modifier.len(), 1);
+        assert!(simulation.modifier.is_some());
         simulation.run_and_save(&hdf5_file);
 
         let results_group = hdf5_file.group("simulations_results").unwrap();

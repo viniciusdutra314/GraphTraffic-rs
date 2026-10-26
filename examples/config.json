@@ -11,13 +11,12 @@
         "metadata": {
             "description": "5-node cycle"
         },
-        "modifiers": [
-            {
-                "type": "ModifierEdgeCapacity",
-                "free_flow_rate": 0.8,
-                "free_flow_sampling_time": 10
-            }
-        ],
+        "modifier": {
+            "type": "ModifierEdgeCapacity",
+            "free_flow_rate": 0.8,
+            "free_flow_sampling_time": 10,
+            "momentum": 0.0
+        },
         "observers": [
             { "type": "ObserverEdgeQueue" },
             { "type": "ObserverEdgeCapacity", "update_interval": 5 },
@@ -33,7 +32,6 @@
         "warm_up_iterations": 0,
         "random_seed": 1,
         "routing_method": "random_walk",
-        "modifiers": [],
         "observers": [{ "type": "ObserverTotalMessages" }]
     },
     {
@@ -45,7 +43,6 @@
         "warm_up_iterations": 20,
         "random_seed": 7,
         "routing_method": { "limited_visibility": 1 },
-        "modifiers": [],
         "observers": [
             { "type": "ObserverEdgeQueue" },
             { "type": "ObserverEdgeReceivedMessages" }
@@ -60,13 +57,12 @@
         "warm_up_iterations": 5,
         "random_seed": 999,
         "routing_method": "minimal_paths",
-        "modifiers": [
-            {
-                "type": "ModifierEdgeCapacity",
-                "free_flow_rate": 0.6,
-                "free_flow_sampling_time": 5
-            }
-        ],
+        "modifier": {
+            "type": "ModifierEdgeCapacity",
+            "free_flow_rate": 0.6,
+            "free_flow_sampling_time": 5,
+            "momentum": 0.0
+        },
         "observers": [{ "type": "ObserverEdgeCapacity", "update_interval": 2 }]
     },
     {
@@ -78,7 +74,6 @@
         "warm_up_iterations": 50,
         "random_seed": 123,
         "routing_method": { "limited_visibility": 3 },
-        "modifiers": [],
         "observers": [
             { "type": "ObserverEdgeQueue" },
             { "type": "ObserverTotalMessages" }
@@ -92,13 +87,12 @@
         "max_iterations": 120,
         "warm_up_iterations": 10,
         "routing_method": "random_walk",
-        "modifiers": [
-            {
-                "type": "ModifierEdgeCapacity",
-                "free_flow_rate": 0.9,
-                "free_flow_sampling_time": 20
-            }
-        ],
+        "modifier": {
+            "type": "ModifierEdgeCapacity",
+            "free_flow_rate": 0.9,
+            "free_flow_sampling_time": 20,
+            "momentum": 0.0
+        },
         "observers": [
             { "type": "ObserverEdgeQueue" },
             { "type": "ObserverEdgeCapacity", "update_interval": 10 }
@@ -113,7 +107,6 @@
         "warm_up_iterations": 0,
         "random_seed": 555,
         "routing_method": "minimal_paths",
-        "modifiers": [],
         "observers": [{ "type": "ObserverEdgeReceivedMessages" }]
     },
     {
@@ -124,7 +117,6 @@
         "max_iterations": 180,
         "warm_up_iterations": 30,
         "routing_method": "minimal_paths",
-        "modifiers": [],
         "observers": [
             { "type": "ObserverEdgeCapacity", "update_interval": 3 },
             { "type": "ObserverEdgeReceivedMessages" }
@@ -139,13 +131,12 @@
         "warm_up_iterations": 15,
         "random_seed": 8080,
         "routing_method": { "limited_visibility": 2 },
-        "modifiers": [
-            {
-                "type": "ModifierEdgeCapacity",
-                "free_flow_rate": 0.85,
-                "free_flow_sampling_time": 8
-            }
-        ],
+        "modifier": {
+            "type": "ModifierEdgeCapacity",
+            "free_flow_rate": 0.85,
+            "free_flow_sampling_time": 8,
+            "momentum": 0.0
+        },
         "observers": [
             { "type": "ObserverEdgeQueue" },
             { "type": "ObserverEdgeCapacity", "update_interval": 4 },

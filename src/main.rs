@@ -289,11 +289,12 @@ mod tests {
             message_generation: 0.1,
             routing_method: RoutingMethod::RandomWalk,
             warm_up_iterations: Some(0),
-            modifiers: vec![ModifierEdgeCapacity {
+            modifier: Some(ModifierEdgeCapacity {
                 free_flow_rate: 0.8,
                 free_flow_sampling_time: 10,
-                type_: serde_json::json! {"edge_capacity"},
-            }],
+                momentum: 0.0,
+                type_: serde_json::json! {"ModifierEdgeCapacity"},
+            }),
             observers: Vec::new(),
         }
     }

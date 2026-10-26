@@ -79,8 +79,7 @@ mod tests {
             "warm_up_iterations": 10,
             "random_seed": 42,
             "routing_method": "minimal_paths",
-            "observers": [],
-            "modifiers": []
+            "observers": []
         })
     }
 
@@ -341,19 +340,76 @@ mod tests {
     }
 
     #[test]
-    fn test_modifiers_constraints() {
+    fn test_modifier_constraints() {
         let mut item = valid_config_item();
-        item.as_object_mut().unwrap().remove("modifiers");
+        item.as_object_mut().unwrap().remove("modifier");
         assert!(
             validate_json_simulation(&json!([item]), &JSON_SIMULATION_VALIDATOR),
-            "Missing modifiers should pass"
+            "Missing modifier should pass"
         );
 
         let mut item = valid_config_item();
-        item["modifiers"] = json!({});
+        item["modifier"] = json!([]);
         assert!(
             !validate_json_simulation(&json!([item]), &JSON_SIMULATION_VALIDATOR),
-            "modifiers as object should fail"
+            "modifier as array should fail"
         );
+    }
+
+    fn capacity_modifier(momentum: serde_json::Value) -> serde_json::Value {
+        json!({
+            "type": "ModifierEdgeCapacity",
+            "free_flow_rate": 0.5,
+            "free_flow_sampling_time": 4,
+            "momentum": momentum
+        })
+    }
+
+    #[test]
+    fn modifier_schema_accepts_valid_momentum_and_round_trips_it() {
+        for momentum in [0.0, 0.25, 0.5, 0.9, 1.0 - f64::from(f32::EPSILON)] {
+            let mut item = valid_config_item();
+            item["modifier"] = capacity_modifier(json!(momentum));
+            assert!(JSON_SIMULATION_VALIDATOR.is_valid(&json!([item.clone()])));
+            let config: SimulationConfigurationItem = serde_json::from_value(item).unwrap();
+            assert_eq!(config.modifier.as_ref().unwrap().momentum, momentum);
+            assert_eq!(
+                serde_json::to_value(config).unwrap()["modifier"]["momentum"],
+                json!(momentum)
+            );
+        }
+    }
+
+    #[test]
+    fn modifier_schema_rejects_momentum_outside_the_domain() {
+        for momentum in [
+            json!(-0.001),
+            json!(1.0),
+            json!(1.5),
+            json!(null),
+            json!("NaN"),
+            json!("Infinity"),
+        ] {
+            let mut item = valid_config_item();
+            item["modifier"] = capacity_modifier(momentum.clone());
+            let errors: Vec<_> = JSON_SIMULATION_VALIDATOR
+                .iter_errors(&json!([item]))
+                .map(|error| error.instance_path().to_string())
+                .collect();
+            assert!(
+                errors
+                    .iter()
+                    .any(|path| path == "/0/modifier" || path.starts_with("/0/modifier/")),
+                "expected a modifier validation error for {momentum}, got {errors:?}"
+            );
+        }
+    }
+    #[test]
+    fn modifier_schema_requires_momentum_when_a_modifier_is_present() {
+        let mut item = valid_config_item();
+        let mut modifier = capacity_modifier(json!(0.0));
+        modifier.as_object_mut().unwrap().remove("momentum");
+        item["modifier"] = modifier;
+        assert!(!JSON_SIMULATION_VALIDATOR.is_valid(&json!([item])));
     }
 }
