@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test (${{ matrix.runner }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        runner:
+          - ubuntu-24.04
+          - ubuntu-24.04-arm
+          - windows-2025
+          - windows-11-arm
+          - macos-15-intel
+          - macos-15
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install Rust from rust-toolchain.toml
+        uses: moonrepo/setup-rust@v1
+        with:
+          inherit-toolchain: true
+          cache: false
+      - name: Run tests
+        run: cargo test --locked
