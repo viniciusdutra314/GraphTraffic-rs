@@ -434,4 +434,56 @@ mod tests {
         std::fs::remove_file(capacity_path).unwrap();
         std::fs::remove_file(hdf5_path).unwrap();
     }
+    #[test]
+    fn free_flow_observer_respects_warmup_and_optional_registration() {
+        let graph_path = write_temp_edgelist("free_flow_graph", "3\n2\n0 1\n1 2\n");
+        let graph = Arc::new(PreComputedGraph::from_edgelist_file(&graph_path));
+        let capacity_path = write_temp_edgelist("free_flow_capacities", "1\n1\n");
+        let path = std::env::temp_dir().join(format!("free_flow_run_{}.hdf5", Uuid::new_v4()));
+        {
+            let file = hdf5_metno::File::create(&path).unwrap();
+            // Every run lasts 7 iterations. Warmup skips the first iterations,
+            // so each registered edge gets max(7 - warmup, 0) samples.
+            // Rows are (warmup iterations, observer registered, samples per edge).
+            for (warmup, registered, expected_samples) in [
+                // Skip 2 of 7 iterations: 5 measurements remain.
+                (2, true, 5),
+                // Warmup equal to or longer than the run leaves no samples.
+                (7, true, 0),
+                (9, true, 0),
+                // No warmup: measure all 7 iterations.
+                (0, true, 7)
+            ] {
+                let mut config = build_config("free_flow", &capacity_path, 7, Some(warmup));
+                if registered {
+                    config.observers =
+                        serde_json::from_value(json!([{"type": "ObserverFreeFlowRate"}])).unwrap();
+                }
+                Simulation::new(graph.clone(), &config).run_and_save(&file);
+                let group = file
+                    .group(&format!("simulations_results/{}", config.uuid))
+                    .unwrap();
+                assert_eq!(group.link_exists("ObserverFreeFlowRate"), registered);
+                if registered {
+                    #[derive(hdf5_metno::H5Type, Clone, Copy)]
+                    #[repr(C)]
+                    struct Counts {
+                        num_samples: u64,
+                        free_flow_times: u64,
+                    }
+                    let dataset = group.dataset("ObserverFreeFlowRate").unwrap();
+                    assert_eq!(dataset.shape(), [graph.edge_count()]);
+                    let rows = dataset.read_raw::<Counts>().unwrap();
+                    assert!(rows.iter().all(|row| row.num_samples == expected_samples));
+                    assert!(
+                        rows.iter()
+                            .all(|row| row.free_flow_times <= row.num_samples)
+                    );
+                }
+            }
+        }
+        std::fs::remove_file(path).unwrap();
+        std::fs::remove_file(capacity_path).unwrap();
+        std::fs::remove_file(graph_path).unwrap();
+    }
 }

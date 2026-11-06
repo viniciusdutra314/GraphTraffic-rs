@@ -84,6 +84,20 @@ mod tests {
     }
 
     #[test]
+    fn free_flow_observer_accepts_no_parameters() {
+        let mut item = valid_config_item();
+        item["observers"] = json!([{"type": "ObserverFreeFlowRate"}]);
+        assert!(JSON_SIMULATION_VALIDATOR.is_valid(&json!([item.clone()])));
+        let config: SimulationConfigurationItem = serde_json::from_value(item.clone()).unwrap();
+        assert_eq!(
+            serde_json::to_value(config).unwrap()["observers"],
+            item["observers"]
+        );
+        item["observers"][0]["update_interval"] = json!(1);
+        assert!(!JSON_SIMULATION_VALIDATOR.is_valid(&json!([item])));
+    }
+
+    #[test]
     fn test_valid_json() {
         let item = valid_config_item();
         let json = json!([item]);
